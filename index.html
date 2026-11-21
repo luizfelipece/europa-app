@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Europa 26/27</title>
+<meta name="theme-color" content="#173b67">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Europa 26/27">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="appbar">
+  <div class="appbar-title"><span id="hdr-title">Europa 26/27</span><small id="hdr-sub"></small></div>
+  <button class="iconbtn" id="sync-btn" aria-label="Sincronizar"><span id="sync-dot" class="dot"></span></button>
+  <button class="iconbtn" id="settings-btn" aria-label="Ajustes">⚙️</button>
+</header>
+<div id="update-bar" class="update-bar" hidden>Nova versão do app disponível. <button id="update-go">Atualizar</button></div>
+<main id="view"></main>
+<nav class="tabbar">
+  <button data-tab="agora" class="active"><span>🧭</span>Agora</button>
+  <button data-tab="roteiro"><span>🗺️</span>Roteiro</button>
+  <button data-tab="ingressos"><span>🎟️</span>Ingressos</button>
+  <button data-tab="gastos"><span>💶</span>Gastos</button>
+  <button data-tab="dicas"><span>💡</span>Dicas</button>
+</nav>
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-box">
+    <div class="sheet-head"><h2 id="sheet-title"></h2><button class="close" id="sheet-close" aria-label="Fechar">×</button></div>
+    <div class="sheet-body modalbody" id="sheet-body"></div>
+  </div>
+</div>
+<div id="toast" class="toast" hidden></div>
+<script src="config.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
