@@ -447,6 +447,7 @@
     const last = LS.get('lastSyncOk', null);
     const h = `<label class="field"><span>Seu nome (aparece nos gastos)</span><input type="text" id="s-dev" value="${esc(settings.device)}" placeholder="Ex.: Luiz"></label>
       <label class="field"><span>Senha da viagem (a mesma nos dois iPhones)</span><input type="password" id="s-sec" value="${esc(settings.secret)}"></label>
+      <label class="field"><span>App de mapas</span><select id="s-maps"><option value="google" ${(settings.maps || 'google') === 'google' ? 'selected' : ''}>Google Maps (recomendado p/ metrô e ônibus)</option><option value="apple" ${settings.maps === 'apple' ? 'selected' : ''}>Apple Mapas</option></select></label>
       <h3 style="margin-top:16px">🏨 Hotéis (nome ou endereço)</h3>
       ${T.cities.map(ct => `<label class="field"><span>${ct.flag} ${esc(ct.name)}</span><input type="text" data-hotel="${ct.id}" value="${esc(hotelOf(ct.id))}" placeholder="Nome do hotel + cidade"></label>`).join('')}
       <details style="margin-top:12px"><summary class="small muted">Conexão (avançado)</summary>
@@ -458,7 +459,7 @@
       <p class="small muted">Versão do app: v${T.version}. Funciona 100% offline; quando houver internet, envia e recebe as mudanças do outro celular.</p>`;
     openSheet('⚙️ Ajustes', h);
     $('#s-save').onclick = () => {
-      settings.device = $('#s-dev').value.trim(); settings.secret = $('#s-sec').value;
+      settings.device = $('#s-dev').value.trim(); settings.secret = $('#s-sec').value; settings.maps = $('#s-maps').value;
       settings.url = $('#s-url').value.trim(); settings.key = $('#s-key').value.trim(); settings.trip = $('#s-trip').value.trim();
       LS.set('settings', settings);
       document.querySelectorAll('[data-hotel]').forEach(i => { const v = i.value.trim(); if (v !== hotelOf(i.dataset.hotel)) setItem('hotel:' + i.dataset.hotel, v, !v); });
@@ -481,6 +482,47 @@
     const f = () => { const v = parseFloat($('#c-v').value), cur = $('#c-cur').value, b = toBRL(v, cur); $('#c-out').textContent = isNaN(v) ? '—' : b == null ? 'Atualize a cotação' : money(b, 'BRL'); };
     $('#c-v').oninput = f; $('#c-cur').onchange = f;
   }
+
+  // Abre no aplicativo do iPhone quando existir (mapas, Uber, Bolt, Instagram); se o app não abrir, cai no site
+  function mapAppUrl(u) {
+    if (!/(^|\.)google\.[a-z.]+$/.test(u.hostname) || !u.pathname.startsWith('/maps')) return null;
+    const q = u.searchParams, app = settings.maps || 'google';
+    const dest = q.get('destination'), orig = q.get('origin'), query = q.get('query');
+    const mode = q.get('travelmode') || 'transit';
+    if (app === 'apple') {
+      const flg = { transit: 'r', walking: 'w', driving: 'd' }[mode] || 'r';
+      if (dest) return 'maps://?' + (orig ? 'saddr=' + encodeURIComponent(orig) + '&' : '') + 'daddr=' + encodeURIComponent(dest) + '&dirflg=' + flg;
+      if (query) return 'maps://?q=' + encodeURIComponent(query);
+      return null;
+    }
+    if (dest) return 'comgooglemaps://?' + (orig ? 'saddr=' + encodeURIComponent(orig) + '&' : '') + 'daddr=' + encodeURIComponent(dest) + '&directionsmode=' + mode;
+    if (query) return 'comgooglemaps://?q=' + encodeURIComponent(query);
+    return null;
+  }
+  function appUrl(href) {
+    let u; try { u = new URL(href); } catch (x) { return null; }
+    const m = mapAppUrl(u); if (m) return m;
+    if (u.hostname === 'm.uber.com') return 'uber://' + u.search;
+    if (/(^|\.)bolt\.eu$/.test(u.hostname)) return 'bolt://';
+    if (/(^|\.)instagram\.com$/.test(u.hostname)) {
+      const t = u.pathname.match(/\/explore\/tags\/([^/]+)/); if (t) return 'instagram://tag?name=' + t[1];
+      const us = u.pathname.match(/^\/([A-Za-z0-9._]+)\/?$/); if (us) return 'instagram://user?username=' + us[1];
+      return 'instagram://app';
+    }
+    return null;
+  }
+
+  document.addEventListener('click', e => {
+    const a = e.target.closest('a[href]'); if (!a || !/iPhone|iPad|iPod/.test(navigator.userAgent)) return;
+    const app = appUrl(a.href); if (!app) return;
+    e.preventDefault();
+    if (a.dataset.copy && navigator.clipboard) { navigator.clipboard.writeText(a.dataset.copy).catch(() => { }); toast('📋 Destino copiado — cole no app'); }
+    const web = a.href; let left = false;
+    const onHide = () => { left = true; };
+    document.addEventListener('visibilitychange', onHide, { once: true });
+    location.href = app;
+    setTimeout(() => { document.removeEventListener('visibilitychange', onHide); if (!left && document.visibilityState === 'visible') window.open(web, '_blank'); }, 1500);
+  }, true);
 
   document.addEventListener('click', async e => {
     const tf = e.target.closest('[data-tfile]'); if (tf) { openTicketFile(tf.dataset.tfile, +tf.dataset.tidx); return; }
