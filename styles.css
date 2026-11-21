@@ -381,3 +381,4 @@ input[type=text],input[type=number],input[type=password],input[type=url],select,
 .gstop p{font-size:15.5px;line-height:1.6;margin:8px 0}
 .gstop ul{margin:4px 0 6px;padding-left:20px}
 .gnum{flex:none;width:30px;height:30px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:850}
+.pill.check{background:#fff3cd;color:#7a5600}

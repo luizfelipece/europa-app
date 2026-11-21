@@ -137,7 +137,7 @@
   /* ---------------- links de transporte ---------------- */
   const uberLink = dest => 'https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=' + encodeURIComponent(dest);
   const mapsTransit = (dest, origin) => 'https://www.google.com/maps/dir/?api=1' + (origin ? '&origin=' + encodeURIComponent(origin) : '') + '&destination=' + encodeURIComponent(dest) + '&travelmode=transit';
-  function hotelOf(city) { return getItem('hotel:' + city) || ''; }
+  function hotelOf(city) { return getItem('hotel:' + city) || (T.hotels && T.hotels[city]) || ''; }
 
   function rideBox(r) {
     const first = r.app === 'bolt'
@@ -223,6 +223,27 @@
     toast('GPS ligado — funciona sem internet');
   }
 
+  /* ---------------- PENDÊNCIAS DE INGRESSOS ---------------- */
+  function pendingTickets() {
+    return T.tickets.filter(t => (getItem('ticket:' + t.id) || t.status) === 'todo')
+      .sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999'));
+  }
+  function dueText(t) {
+    if (!t.due) return '';
+    const d = Math.round((new Date(t.due + 'T23:59') - now()) / 864e5);
+    const when = fmtDay(t.due);
+    return d < 0 ? `⚠️ prazo passou (${when})` : d === 0 ? '⏰ comprar HOJE' : d <= 7 ? `⏰ comprar até ${when} (faltam ${d} dia${d > 1 ? 's' : ''})` : `comprar até ${when}`;
+  }
+  function pendingCard(max) {
+    const p = pendingTickets(); if (!p.length) return '';
+    const urgent = p.filter(t => t.due && (new Date(t.due + 'T23:59') - now()) / 864e5 <= 7).length;
+    return `<div class="card" style="border-left:5px solid ${urgent ? 'var(--red)' : 'var(--gold)'}"><h3>🎟️ Ingressos para comprar (${p.length})</h3>` +
+      p.slice(0, max || 99).map(t => `<div class="list-item"><div class="grow"><b>${esc(t.name.split('—').slice(1).join('—').trim())}</b>
+        <div class="small" style="color:${/HOJE|passou|faltam/.test(dueText(t)) ? 'var(--red)' : 'var(--muted)'}">${esc(dueText(t))}</div>
+        ${t.how ? `<div class="small">${esc(t.how)}</div>` : ''}${t.url ? `<a class="small" href="${esc(t.url)}" target="_blank" rel="noopener">Abrir site oficial →</a>` : ''}</div></div>`).join('') +
+      `<button class="btn secondary full" style="margin-top:8px" data-goto="ingressos">Ver todos os ingressos</button></div>`;
+  }
+
   /* ---------------- AGORA ---------------- */
   function renderAgora() {
     const n = now(), today = ymd(n);
@@ -232,6 +253,7 @@
       const dd = Math.ceil((new Date(first.date + 'T00:00') - new Date(today + 'T00:00')) / 864e5);
       const ck = T.tips.checklist, okc = ck.filter(c => getItem('check:' + c.id)).length;
       h += `<div class="card"><div class="kicker">Contagem regressiva</div><div class="big">${dd} dia${dd > 1 ? 's' : ''}</div><div class="muted">para 19/12 — chegada em Londres</div></div>`;
+      h += pendingCard(6);
       h += `<div class="card"><h2>Antes de viajar</h2><div class="progress">${okc} de ${ck.length} feitos</div>` +
         ck.map(c => `<label class="check" style="color:var(--ink)"><input type="checkbox" data-check="${c.id}" ${getItem('check:' + c.id) ? 'checked' : ''}> ${esc(c.t)}</label>`).join('') + '</div>';
       h += `<div class="card"><h3>Primeiro dia</h3>${stopCard(first, first.stops[0])}</div>`;
@@ -261,6 +283,7 @@
         const when = mins < 60 ? `em ${mins} min` : mins < 1440 ? `em ${Math.floor(mins / 60)}h${String(mins % 60).padStart(2, '0')}` : fmtDay(next.day.date);
         h += `<div class="kicker" style="margin:14px 2px 4px">Próximo • ${when}</div>${stopCard(next.day, next.s)}`;
       }
+      if (pendingTickets().some(t => t.due && (new Date(t.due + 'T23:59') - n) / 864e5 <= 3)) h += pendingCard(3);
       if (city) {
         const hotel = hotelOf(city.id);
         h += `<div class="card" style="margin-top:14px"><div class="row wrap">
@@ -304,6 +327,7 @@
         const fs = filesCache.filter(f => f.ticket === t.id);
         return `<div class="list-item"><div class="grow"><div>${esc(t.name.split('—').slice(1).join('—').trim() || t.name)}</div>
           <button class="pill ${st}" style="border:0;margin:4px 0 0" data-tstatus="${t.id}">${esc(lbl)}</button>
+          ${st === 'todo' && t.due ? `<div class="small" style="color:var(--red)">${esc(dueText(t))}</div>` : ''}${st === 'todo' && t.how ? `<div class="small muted">${esc(t.how)}</div>` : ''}${st === 'todo' && t.url ? `<a class="small" href="${esc(t.url)}" target="_blank" rel="noopener">Site oficial →</a>` : ''}
           <div class="attach">${fs.map(f => `<button class="btn secondary" data-file="${f.id}">📄 ${esc(f.name.slice(0, 22))}</button>`).join('')}
           <label class="btn secondary">＋ Anexar<input type="file" accept="application/pdf,image/*" data-attach="${t.id}" hidden></label></div></div></div>`;
       }).join('') + '</div>';
@@ -445,6 +469,7 @@
     if (el.dataset.city !== undefined) { cityFilter = el.dataset.city || null; LS.set('city', cityFilter); render.jump = false; render(); return; }
     if (el.dataset.dcity !== undefined) { dicasCity = el.dataset.dcity || null; render(); return; }
     if (el.dataset.goto === 'settings') { renderSettings(); return; }
+    if (el.dataset.goto === 'ingressos') { tab = 'ingressos'; LS.set('tab', tab); render(); window.scrollTo(0, 0); return; }
     if (el.dataset.goto === 'roteiro') { tab = 'roteiro'; cityFilter = null; render.jump = el.dataset.day; render(); return; }
     if (el.dataset.act === 'rates') { updateRates(); return; }
     if (el.dataset.act === 'manualrate') {
@@ -463,7 +488,7 @@
     if (el.dataset.delexp) { if (confirm('Apagar este gasto?')) { setItem(el.dataset.delexp, null, true); render(); } return; }
     if (el.dataset.tstatus) {
       const t = T.tickets.find(x => x.id === el.dataset.tstatus); const cur = getItem('ticket:' + t.id) || t.status;
-      const nx = { todo: 'ok', ok: 'info', info: 'todo' }[cur]; setItem('ticket:' + t.id, nx); render(); return;
+      const nx = { todo: 'ok', ok: 'todo', info: 'todo', check: 'ok' }[cur]; setItem('ticket:' + t.id, nx); render(); return;
     }
     if (el.dataset.file) {
       const f = filesCache.find(x => x.id === el.dataset.file); if (!f) return;
