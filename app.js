@@ -63,6 +63,7 @@
         if (!maxS || new Date(r.server_at) > new Date(maxS)) maxS = r.server_at;
       }
       LS.set('lastPull', maxS); LS.set('items', items); LS.set('lastSyncOk', new Date().toISOString());
+      if (!LS.get('fk', null)) { try { const k = await rpc('viagem_files_key', { p_trip: c.trip, p_secret: settings.secret }); if (k) LS.set('fk', k); } catch (x) { } }
       lastErr = '';
       if (changed) render();
     } catch (e) { lastErr = e.message || 'Falha'; }
@@ -313,6 +314,36 @@
     return h;
   }
 
+  /* ---------------- ARQUIVOS DE INGRESSO (criptografados) ---------------- */
+  let cryptoKey = null;
+  async function getKey() {
+    if (cryptoKey) return cryptoKey;
+    let k = LS.get('fk', null);
+    if (!k && navigator.onLine && syncConfigured()) {
+      try { const c = cfg(); k = await rpc('viagem_files_key', { p_trip: c.trip, p_secret: settings.secret }); if (k) LS.set('fk', k); } catch (x) { }
+    }
+    if (!k) return null;
+    const raw = Uint8Array.from(atob(k), ch => ch.charCodeAt(0));
+    cryptoKey = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
+    return cryptoKey;
+  }
+  async function openTicketFile(tid, idx) {
+    const t = T.tickets.find(x => x.id === tid), f = t.files[idx];
+    openSheet('🎫 ' + (t.name.split('—').slice(1).join('—').trim() || t.name), '<div class="empty">Abrindo ingresso…</div>');
+    const key = await getKey();
+    if (!key) { $('#sheet-body').innerHTML = '<div class="note warn">Para abrir os ingressos pela primeira vez, conecte à internet e confira a <b>senha da viagem</b> em ⚙️. Depois disso eles abrem sem internet.</div>'; return; }
+    try {
+      const imgs = [];
+      for (const pg of f.pages) {
+        const buf = new Uint8Array(await (await fetch(pg)).arrayBuffer());
+        const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: buf.slice(0, 12) }, key, buf.slice(12));
+        imgs.push(URL.createObjectURL(new Blob([plain], { type: 'image/png' })));
+      }
+      $('#sheet-body').innerHTML = `<div class="note small">💡 Aumente o brilho da tela ao mostrar o código. Dá para ampliar com dois dedos.</div>` +
+        imgs.map(u => `<img src="${u}" style="width:100%;background:#fff;border:1px solid #ddd;border-radius:8px;margin-top:10px">`).join('');
+    } catch (e) { $('#sheet-body').innerHTML = '<div class="note warn">Não consegui abrir este ingresso neste celular. Abra o app com internet uma vez e tente de novo.</div>'; }
+  }
+
   /* ---------------- INGRESSOS ---------------- */
   let filesCache = [];
   function renderIngressos() {
@@ -328,6 +359,7 @@
         return `<div class="list-item"><div class="grow"><div>${esc(t.name.split('—').slice(1).join('—').trim() || t.name)}</div>
           <button class="pill ${st}" style="border:0;margin:4px 0 0" data-tstatus="${t.id}">${esc(lbl)}</button>
           ${st === 'todo' && t.due ? `<div class="small" style="color:var(--red)">${esc(dueText(t))}</div>` : ''}${st === 'todo' && t.how ? `<div class="small muted">${esc(t.how)}</div>` : ''}${st === 'todo' && t.url ? `<a class="small" href="${esc(t.url)}" target="_blank" rel="noopener">Site oficial →</a>` : ''}
+          ${(t.files || []).length ? `<div class="attach">${t.files.map((f, i) => `<button class="btn" style="font-size:13px;padding:7px 10px" data-tfile="${t.id}" data-tidx="${i}">🎫 ${esc(f.label)}</button>`).join('')}</div>` : ''}
           <div class="attach">${fs.map(f => `<button class="btn secondary" data-file="${f.id}">📄 ${esc(f.name.slice(0, 22))}</button>`).join('')}
           <label class="btn secondary">＋ Anexar<input type="file" accept="application/pdf,image/*" data-attach="${t.id}" hidden></label></div></div></div>`;
       }).join('') + '</div>';
@@ -451,6 +483,7 @@
   }
 
   document.addEventListener('click', async e => {
+    const tf = e.target.closest('[data-tfile]'); if (tf) { openTicketFile(tf.dataset.tfile, +tf.dataset.tidx); return; }
     const g = e.target.closest('[data-guide],[data-say],[data-gps]');
     if (g) {
       if (g.dataset.guide) { openGuide(g.dataset.guide); return; }
