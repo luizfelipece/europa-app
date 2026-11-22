@@ -397,3 +397,8 @@ input[type=text],input[type=number],input[type=password],input[type=url],select,
 .tips-btn{background:#e9f3ee;color:#0f5a3e;border:1px solid #b9dcc9}
 .citybtns .hist-btn{margin:0}
 .tipsec{border-top:1px solid var(--line);padding:10px 0}.tipsec h3{margin:0 0 5px;font-size:16px}
+.souv-btn{background:#fbeef3;color:#7a2448;border:1px solid #ecc3d3}
+.citybtns{flex-wrap:wrap}.citybtns .btn{min-width:100px}
+.citybtns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.citybtns .btn{min-width:0;font-size:13px;padding:8px 8px;white-space:normal;line-height:1.2}
+.citybtns .btn small{font-size:11px;white-space:normal}

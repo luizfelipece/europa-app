@@ -189,8 +189,19 @@
       sec('⭐', 'Bom saber', esc(t.extra)) +
       `<div class="tipsec"><h3>🗣️ Frases úteis</h3>${t.phrases.map(p => `<div class="phrase"><span>${esc(p[0])}</span><b>${esc(p[1])}</b></div>`).join('')}</div>` +
       `<div class="tipsec"><h3>🆘 Emergência</h3><div class="big" style="font-size:22px">${esc(t.emergency)}</div></div>` +
-      `<div class="row wrap" style="margin-top:10px"><button class="btn secondary" data-modal="${c.transport}">🚇 Transporte e bilhetes</button>${histBtn(cid)}</div>`;
+      (t.souvenirs ? `<div class="tipsec"><h3>🎁 Lembranças para comprar</h3><div class="small">${t.souvenirs.map(x => esc(x.item)).join(' · ')}</div></div>` : '') +
+      `<div class="row wrap" style="margin-top:10px">${souvBtn(cid)}<button class="btn secondary" data-modal="${c.transport}">🚇 Transporte e bilhetes</button>${histBtn(cid)}</div>`;
   }
+  function souvHtml(cid) {
+    const t = T.tips.cities[cid];
+    return `<p class="small muted">Lembranças típicas para a estante — escolha as que mais gostar.</p>` +
+      t.souvenirs.map(x => `<div class="tipsec"><h3>${esc(x.item)}</h3><div class="small">${esc(x.tip)}</div></div>`).join('') +
+      (t.shops ? `<h3 style="margin-top:14px">📍 Onde comprar — do mais barato ao mais caro</h3><p class="small muted">Estimativa: a mesma miniatura costuma custar menos nas ruas de lojas e mercados do que nas lojas oficiais, de museu e de aeroporto.</p>` + t.shops.map(x => `<div class="tipsec"><h3>${esc(x.name)} <span class="pill ${/mais barato/.test(x.price) ? 'ok' : /caro/.test(x.price) ? 'todo' : 'info'}">${esc(x.price || '')}</span></h3><div class="small">${esc(x.what)}</div><div class="small muted">📅 ${esc(x.day)}</div>
+        <a class="btn secondary" style="font-size:13px;padding:7px 10px;margin-top:6px" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x.q)}">📍 Abrir no mapa</a></div>`).join('') : '') +
+      `<div class="note small">🛍️ Compre em lojas e mercados de Natal, nunca de vendedor de rua. Peça para embrulhar bem o que for frágil. Globo de neve com mais de 100 ml vai na mala despachada.</div>`;
+  }
+  function openSouv(cid) { stopSpeak(); openSheet('🎁 Lembranças — ' + CITY[cid].flag + ' ' + CITY[cid].name, souvHtml(cid)); }
+  function souvBtn(cid, cls) { const t = T.tips.cities[cid]; return t && t.souvenirs ? `<button class="btn ${cls || 'secondary'}" data-souv="${cid}">🎁 Lembranças</button>` : ''; }
   function openCountry(cid) { stopSpeak(); openSheet('💡 Dicas — ' + CITY[cid].flag + ' ' + CITY[cid].name, countryHtml(cid)); }
 
   /* ---------------- HISTÓRIA DAS CIDADES E DOS LUGARES ---------------- */
@@ -347,7 +358,7 @@
         h += `<div class="card" style="margin-top:14px"><div class="row wrap">
           <button class="btn secondary" data-modal="${city.transport}">🚇 Transporte em ${esc(city.name)}</button>
           ${hotel ? `<a class="btn secondary" href="${mapsTransit(hotel)}" target="_blank" rel="noopener">🏨 Voltar ao hotel</a>` : `<button class="btn secondary" data-goto="settings">🏨 Cadastrar hotel</button>`}
-          <button class="btn secondary" data-goto="roteiro" data-day="${day.date}">📅 Dia completo</button>${tipsBtn(city.id)}${histBtn(city.id)}</div></div>`;
+          <button class="btn secondary" data-goto="roteiro" data-day="${day.date}">📅 Dia completo</button>${tipsBtn(city.id)}${souvBtn(city.id)}${histBtn(city.id)}</div></div>`;
       }
     }
     return h;
@@ -361,14 +372,14 @@
     if (cityFilter) {
       const c = CITY[cityFilter], hotel = hotelOf(c.id);
       h += `<div class="row wrap" style="margin-bottom:10px"><button class="btn secondary" data-modal="${c.transport}">🚇 Como se locomover + bilhetes</button>
-        ${hotel ? `<a class="btn secondary" href="${mapsTransit(hotel)}" target="_blank" rel="noopener">🏨 Hotel</a>` : ''}${tipsBtn(c.id)}${histBtn(c.id)}</div>`;
+        ${hotel ? `<a class="btn secondary" href="${mapsTransit(hotel)}" target="_blank" rel="noopener">🏨 Hotel</a>` : ''}${tipsBtn(c.id)}${souvBtn(c.id)}${histBtn(c.id)}</div>`;
     }
     let prevCity = null;
     for (const d of T.days.filter(d => !cityFilter || d.city === cityFilter)) {
       const doneN = d.stops.filter(s => getItem('done:' + s.id)).length;
       const buyN = d.stops.filter(s => { const t = s.tk && T.tickets.find(x => x.id === s.tk); return t && (getItem('ticket:' + t.id) || t.status) === 'todo'; }).length;
       h += `<div class="card day ${d.date === today ? 'today' : ''}" id="day-${d.date}"><div class="day-head"><div><h2>${esc(d.title)}</h2><div class="muted small">${CITY[d.city].flag} ${esc(d.sub)} • ${doneN}/${d.stops.length}${buyN ? ` • <b style="color:var(--red)">🎟️ ${buyN} ingresso${buyN > 1 ? 's' : ''} a comprar</b>` : ''}</div></div>${d.badge ? `<span class="badge">${esc(d.badge)}</span>` : ''}</div>` +
-        (d.city !== prevCity ? `<div class="citybtns"><button class="btn tips-btn" data-ctips="${d.city}">💡 Dicas de ${esc(CITY[d.city].name)}<small>dinheiro, saques, golpes, gorjeta</small></button>${T.history && T.history[d.city] ? `<button class="btn hist-btn" data-hist="${d.city}">📜 História<small>ler ou ouvir</small></button>` : ''}</div>` : '') +
+        (d.city !== prevCity ? `<div class="citybtns"><button class="btn tips-btn" data-ctips="${d.city}">💡 Dicas de ${esc(CITY[d.city].name)}<small>dinheiro, saques, golpes, gorjeta</small></button>${T.history && T.history[d.city] ? `<button class="btn hist-btn" data-hist="${d.city}">📜 História<small>ler ou ouvir</small></button>` : ''}${T.tips.cities[d.city] && T.tips.cities[d.city].souvenirs ? `<button class="btn souv-btn" data-souv="${d.city}">🎁 Lembranças<small>o que comprar</small></button>` : ''}</div>` : '') +
         d.stops.map(s => stopCard(d, s)).join('') + '</div>';
       prevCity = d.city;
     }
@@ -589,6 +600,7 @@
   document.addEventListener('click', async e => {
     const tf = e.target.closest('[data-tfile]'); if (tf) { openTicketFile(tf.dataset.tfile, +tf.dataset.tidx); return; }
     const ct = e.target.closest('[data-ctips]'); if (ct) { openCountry(ct.dataset.ctips); return; }
+    const sv = e.target.closest('[data-souv]'); if (sv) { openSouv(sv.dataset.souv); return; }
     const hz = e.target.closest('[data-hist],[data-lore],[data-hsay]');
     if (hz) {
       if (hz.dataset.hist) { openHistory(hz.dataset.hist); return; }
