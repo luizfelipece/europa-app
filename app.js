@@ -364,6 +364,7 @@
       const dd = Math.ceil((new Date(first.date + 'T00:00') - new Date(today + 'T00:00')) / 864e5);
       const ck = T.tips.checklist, okc = ck.filter(c => getItem('check:' + c.id)).length;
       h += `<div class="card"><div class="kicker">Contagem regressiva</div><div class="big">${dd} dia${dd > 1 ? 's' : ''}</div><div class="muted">para 19/12 — chegada em Londres</div></div>`;
+      h += tripAlert();
       h += pendingCard(6);
       h += `<div class="card"><h2>Antes de viajar</h2><div class="progress">${okc} de ${ck.length} feitos</div>` +
         ck.map(c => `<label class="check" style="color:var(--ink)"><input type="checkbox" data-check="${c.id}" ${getItem('check:' + c.id) ? 'checked' : ''}> ${esc(c.t)}</label>`).join('') + '</div>';
@@ -394,6 +395,7 @@
         const when = mins < 60 ? `em ${mins} min` : mins < 1440 ? `em ${Math.floor(mins / 60)}h${String(mins % 60).padStart(2, '0')}` : fmtDay(next.day.date);
         h += `<div class="kicker" style="margin:14px 2px 4px">Próximo • ${when}</div>${stopCard(next.day, next.s)}`;
       }
+      h += tripAlert();
       if (pendingTickets().some(t => t.due && (new Date(t.due + 'T23:59') - n) / 864e5 <= 3)) h += pendingCard(3);
       if (city) {
         const hotel = hotelOf(city.id);
@@ -469,13 +471,48 @@
     } catch (e) { $('#sheet-body').innerHTML = '<div class="note warn">Não consegui abrir este ingresso neste celular. Abra o app com internet uma vez e tente de novo.</div>'; }
   }
 
+
+  /* ---------------- PASSAGENS ---------------- */
+  function tripState(t) {
+    const n = now(), dep = new Date(t.dep);
+    const open = t.ckh ? new Date(dep.getTime() - t.ckh * 36e5) : null;
+    if (n > dep) return { k: 'done', txt: 'Já foi ✓' };
+    if (open && n >= open) return { k: 'open', txt: '✅ Check-in ABERTO — faça agora' };
+    if (open) { const dd = Math.ceil((open - n) / 864e5); return { k: 'wait', txt: dd <= 1 ? 'Check-in abre em menos de 1 dia' : `Check-in abre em ${dd} dias` }; }
+    const dd = Math.ceil((dep - n) / 864e5); return { k: 'wait', txt: dd <= 1 ? 'É hoje/amanhã' : `Faltam ${dd} dias` };
+  }
+  function tripCard(t) {
+    const st = tripState(t), note = getItem('tripnote:' + t.id) || '';
+    const col = st.k === 'open' ? 'var(--green,#1a7f37)' : st.k === 'done' ? 'var(--muted,#888)' : 'var(--ink)';
+    return `<div class="card"><h3>${t.icon} ${esc(t.title)}</h3>
+      <div class="small muted">${esc(t.co)}</div>
+      <div class="row wrap" style="margin:8px 0;align-items:center"><span class="big" style="font-size:22px;letter-spacing:1px">${esc(t.code)}</span>
+        <button class="btn secondary" style="padding:6px 10px;font-size:13px" data-ccode="${esc(t.code.replace(/^\D+\s/, ''))}">Copiar</button></div>
+      <div class="small" style="font-weight:600;color:${col}">${st.txt}</div>
+      <ul class="small" style="margin:8px 0 4px;padding-left:18px">${t.legs.map(l => `<li>${esc(l)}</li>`).join('')}</ul>
+      <div class="small muted">👥 ${t.pax.map(esc).join(' • ')}</div>
+      <div class="small muted">🧳 ${esc(t.bag)}</div>
+      <ul class="small" style="margin:8px 0;padding-left:18px">${t.tips.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+      ${t.ckurl ? `<a class="btn ${st.k === 'open' ? '' : 'secondary'}" href="${t.ckurl}" target="_blank" rel="noopener">Fazer check-in →</a>` : ''}
+      <label class="small muted" style="display:block;margin-top:8px">📝 Anotação (código da Iberia, assento…)
+        <input type="text" data-tripnote="${t.id}" value="${esc(note)}" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid #ccc"></label></div>`;
+  }
+  function tripsHtml() {
+    return `<div class="card"><h2>✈️ Passagens e check-in</h2><div class="muted small">Tirado do e-mail. Toque em “Copiar” para colar o localizador no app da companhia.</div></div>` + (T.trips || []).map(tripCard).join('');
+  }
+  function tripAlert() {
+    const n = now();
+    const t = (T.trips || []).find(x => { const s = tripState(x); const dep = new Date(x.dep); return s.k === 'open' || (s.k === 'wait' && dep - n < 36 * 36e5); });
+    return t ? `<div class="kicker" style="margin:4px 2px">Próxima passagem</div>${tripCard(t)}` : '';
+  }
+
   /* ---------------- INGRESSOS ---------------- */
   let filesCache = [];
   function renderIngressos() {
     const groups = {};
     T.tickets.forEach(t => (groups[t.city] = groups[t.city] || []).push(t));
     const todo = T.tickets.filter(t => (getItem('ticket:' + t.id) || t.status) === 'todo').length;
-    let h = `<div class="card"><h2>🎟️ Ingressos e reservas</h2><div class="muted small">Toque no status para mudar. Anexe PDF/print do QR code: o arquivo fica salvo <b>neste celular</b> e abre sem internet (cada um anexa no seu).</div>${todo ? `<div class="note warn">${todo} pendente${todo > 1 ? 's' : ''} para comprar/reservar</div>` : ''}</div>`;
+    let h = tripsHtml() + `<div class="card"><h2>🎟️ Ingressos e reservas</h2><div class="muted small">Toque no status para mudar. Anexe PDF/print do QR code: o arquivo fica salvo <b>neste celular</b> e abre sem internet (cada um anexa no seu).</div>${todo ? `<div class="note warn">${todo} pendente${todo > 1 ? 's' : ''} para comprar/reservar</div>` : ''}</div>`;
     for (const [city, list] of Object.entries(groups)) {
       h += `<div class="card"><h3>${esc(city)}</h3>` + list.map(t => {
         const st = getItem('ticket:' + t.id) || t.status;
@@ -651,6 +688,7 @@
   }, true);
 
   document.addEventListener('click', async e => {
+    const cc = e.target.closest('[data-ccode]'); if (cc) { try { await navigator.clipboard.writeText(cc.dataset.ccode); toast('Código copiado: ' + cc.dataset.ccode); } catch (x) { toast(cc.dataset.ccode); } return; }
     const tf = e.target.closest('[data-tfile]'); if (tf) { openTicketFile(tf.dataset.tfile, +tf.dataset.tidx); return; }
     const ct = e.target.closest('[data-ctips]'); if (ct) { openCountry(ct.dataset.ctips); return; }
     const sv = e.target.closest('[data-souv]'); if (sv) { openSouv(sv.dataset.souv); return; }
@@ -716,6 +754,7 @@
     const t = e.target;
     if (t.dataset.gseen !== undefined) { setItem('guide:' + curGuide + ':' + t.dataset.gseen, t.checked || null, !t.checked); refreshGuide(); return; }
     if (t.dataset.done) { setItem('done:' + t.dataset.done, t.checked || null, !t.checked); t.closest('.stop').classList.toggle('done', t.checked); return; }
+    if (t.dataset.tripnote) { setItem('tripnote:' + t.dataset.tripnote, t.value.trim() || null, !t.value.trim()); toast('Anotação salva'); return; }
     if (t.dataset.check) { setItem('check:' + t.dataset.check, t.checked || null, !t.checked); render(); return; }
     if (t.dataset.attach && t.files[0]) {
       const f = t.files[0];
