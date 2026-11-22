@@ -176,7 +176,7 @@
   function photoItem(ref) { const [cid, id] = ref.split(':'); return ((T.photos || {})[cid] || []).find(x => x.id === id); }
   function photoBlock(x) {
     return `<div class="tipsec"><h3>📸 ${esc(x.title)}</h3><div class="small"><b>Onde:</b> ${esc(x.where)}</div><div class="small"><b>Melhor hora:</b> ${esc(x.when)}</div><div class="small" style="margin-top:4px">💡 ${esc(x.tip)}</div>${x.day ? `<div class="small muted">📅 ${fmtDay(x.day)}</div>` : ''}
-      <a class="btn secondary" style="font-size:13px;padding:7px 10px;margin-top:6px" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x.q)}">📍 Abrir no mapa</a></div>`;
+      <a class="btn secondary" style="font-size:13px;padding:7px 10px;margin-top:6px" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x.q)}">📍 Abrir no mapa</a>${x.ig ? ` <a class="btn secondary" style="font-size:13px;padding:7px 10px;margin-top:6px" target="_blank" rel="noopener" href="https://www.instagram.com/explore/tags/${encodeURIComponent(x.ig)}/">📷 Ver fotos no Instagram #${esc(x.ig)}</a>` : ''}</div>`;
   }
   function openPhotos(cid) {
     stopSpeak();
