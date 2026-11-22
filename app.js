@@ -133,7 +133,19 @@
   };
 
   function modalHtml(id) { const m = T.modals[id]; return m ? m.html : '<p class="muted">Sem detalhes.</p>'; }
-  function showModal(id) { const m = T.modals[id]; if (m) openSheet(m.title, m.html); }
+  function showModal(id) {
+    const m = T.modals[id]; if (!m) return;
+    const sts = T.days.flatMap(d => d.stops).filter(x => x.modal === id);
+    const ph = [...new Set(sts.flatMap(x => x.photos || []))].map(photoItem).filter(Boolean);
+    const lo = [...new Set(sts.flatMap(x => x.lore || []))];
+    let top = '';
+    if (T.guides && T.guides[id]) top += `<button class="btn full guide-btn" data-guide="${esc(id)}">🎧 Guia no local — percurso + ouvir</button>`;
+    if (ph.length) top += `<details class="modal-extra" open><summary>📸 Onde tirar a melhor foto (${ph.length})</summary>${ph.map(photoBlock).join('')}</details>`;
+    const di = [...new Set(sts.flatMap(x => x.dishes || []))];
+    if (di.length) top += `<button class="btn full dish-btn" data-dishes="${esc(di.join(','))}">🍽️ O que pedir e a história dos pratos (${di.length})</button>`;
+    if (lo.length) top += `<button class="btn full lore-btn" data-lore="${esc(lo.join(','))}">📜 História e curiosidades deste lugar (${lo.length})</button>`;
+    openSheet(m.title, top + m.html);
+  }
 
   /* ---------------- links de transporte ---------------- */
   const uberLink = dest => 'https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=' + encodeURIComponent(dest);
@@ -166,11 +178,25 @@
       <div class="time">${esc(s.time)}</div><h3>${title} ${pill}</h3>${buy}${s.desc ? `<p>${esc(s.desc)}</p>` : ''}${notes}
       ${s.ride ? rideBox(s.ride) : ''}
       ${s.modal && T.guides && T.guides[s.modal] ? `<button class="btn full guide-btn" data-guide="${esc(s.modal)}">🎧 Guia no local — percurso + ouvir</button>` : ''}
+      ${(s.dishes || []).length ? `<button class="btn full dish-btn" data-dishes="${esc(s.dishes.join(','))}">🍽️ O que pedir e a história dos pratos (${s.dishes.length})</button>` : ''}
       ${(s.photos || []).length ? `<button class="btn full photo-btn" data-sphotos="${esc(s.photos.join(','))}">📸 Onde tirar a melhor foto${s.photos.length > 1 ? ' (' + s.photos.length + ' pontos)' : ''}</button>` : ''}
       ${(s.lore || []).length ? `<button class="btn full lore-btn" data-lore="${esc(s.lore.join(','))}">📜 História e curiosidades${s.lore.length > 1 ? ' (' + s.lore.length + ')' : ''}: ${esc((loreItem(s.lore[0]) || {}).title || '')}</button>` : ''}
       ${links ? `<div class="stop-actions">${links}</div>` : ''}
       <label class="check"><input type="checkbox" data-done="${esc(s.id)}" ${done ? 'checked' : ''}> feito</label></div>`;
   }
+
+  /* ---------------- PRATOS TÍPICOS ---------------- */
+  function dishItem(ref) { const [cid, id] = ref.split(':'); return ((T.dishes || {})[cid] || []).find(x => x.id === id); }
+  function dishBlock(ref, x) {
+    hsay[ref] = x.name.replace(/^[^\wÀ-ú]+/, '') + '. ' + x.what + ' ' + x.hist;
+    return `<div class="tipsec"><h3>${esc(x.name)}</h3><div class="small"><b>O que é:</b> ${esc(x.what)}</div><div class="small" style="margin-top:4px"><b>📜 História:</b> ${esc(x.hist)}</div>
+      <button class="btn secondary" style="font-size:13px;padding:7px 10px;margin-top:6px" data-hsay="${ref}" data-label="▶ Ouvir">▶ Ouvir</button></div>`;
+  }
+  function openDishes(refs, title) {
+    stopSpeak(); hsay = {};
+    openSheet(title || '🍽️ O que pedir aqui', refs.map(r => [r, dishItem(r)]).filter(x => x[1]).map(([r, x]) => dishBlock(r, x)).join(''));
+  }
+  function dishesBtn(cid, cls) { return (T.dishes || {})[cid] ? `<button class="btn ${cls || 'secondary'}" data-cdishes="${cid}">🍽️ Comidas típicas</button>` : ''; }
 
   /* ---------------- MELHORES FOTOS ---------------- */
   function photoItem(ref) { const [cid, id] = ref.split(':'); return ((T.photos || {})[cid] || []).find(x => x.id === id); }
@@ -206,7 +232,7 @@
       `<div class="tipsec"><h3>🗣️ Frases úteis</h3>${t.phrases.map(p => `<div class="phrase"><span>${esc(p[0])}</span><b>${esc(p[1])}</b></div>`).join('')}</div>` +
       `<div class="tipsec"><h3>🆘 Emergência</h3><div class="big" style="font-size:22px">${esc(t.emergency)}</div></div>` +
       (t.souvenirs ? `<div class="tipsec"><h3>🎁 Lembranças para comprar</h3><div class="small">${t.souvenirs.map(x => esc(x.item)).join(' · ')}</div></div>` : '') +
-      `<div class="row wrap" style="margin-top:10px">${souvBtn(cid)}<button class="btn secondary" data-modal="${c.transport}">🚇 Transporte e bilhetes</button>${histBtn(cid)}</div>`;
+      `<div class="row wrap" style="margin-top:10px">${dishesBtn(cid)}${souvBtn(cid)}<button class="btn secondary" data-modal="${c.transport}">🚇 Transporte e bilhetes</button>${histBtn(cid)}</div>`;
   }
   function souvHtml(cid) {
     const t = T.tips.cities[cid];
@@ -388,7 +414,7 @@
     if (cityFilter) {
       const c = CITY[cityFilter], hotel = hotelOf(c.id);
       h += `<div class="row wrap" style="margin-bottom:10px"><button class="btn secondary" data-modal="${c.transport}">🚇 Como se locomover + bilhetes</button>
-        ${hotel ? `<a class="btn secondary" href="${mapsTransit(hotel)}" target="_blank" rel="noopener">🏨 Hotel</a>` : ''}${tipsBtn(c.id)}${souvBtn(c.id)}${photoBtn(c.id)}${histBtn(c.id)}</div>`;
+        ${hotel ? `<a class="btn secondary" href="${mapsTransit(hotel)}" target="_blank" rel="noopener">🏨 Hotel</a>` : ''}${tipsBtn(c.id)}${dishesBtn(c.id)}${souvBtn(c.id)}${photoBtn(c.id)}${histBtn(c.id)}</div>`;
     }
     let prevCity = null;
     for (const d of T.days.filter(d => !cityFilter || d.city === cityFilter)) {
@@ -617,6 +643,8 @@
     const tf = e.target.closest('[data-tfile]'); if (tf) { openTicketFile(tf.dataset.tfile, +tf.dataset.tidx); return; }
     const ct = e.target.closest('[data-ctips]'); if (ct) { openCountry(ct.dataset.ctips); return; }
     const sv = e.target.closest('[data-souv]'); if (sv) { openSouv(sv.dataset.souv); return; }
+    const dz = e.target.closest('[data-dishes],[data-cdishes]');
+    if (dz) { if (dz.dataset.dishes) openDishes(dz.dataset.dishes.split(','), '🍽️ O que pedir aqui'); else openDishes(((T.dishes || {})[dz.dataset.cdishes] || []).map(x => dz.dataset.cdishes + ':' + x.id), '🍽️ Comidas típicas — ' + CITY[dz.dataset.cdishes].flag + ' ' + CITY[dz.dataset.cdishes].name); return; }
     const ph = e.target.closest('[data-photos],[data-sphotos]'); if (ph) { if (ph.dataset.photos) openPhotos(ph.dataset.photos); else openStopPhotos(ph.dataset.sphotos); return; }
     const hz = e.target.closest('[data-hist],[data-lore],[data-hsay]');
     if (hz) {

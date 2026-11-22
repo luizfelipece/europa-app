@@ -407,3 +407,7 @@ input[type=text],input[type=number],input[type=password],input[type=url],select,
 .photo-btn{background:#e8f0fb;color:#1f3a5f;border:1px solid #bcd0ec}
 .btn.full.photo-btn{margin-top:8px;text-align:left;font-size:14px}
 .citybtns{grid-template-columns:1fr 1fr}
+.modal-extra{background:#eef4fb;border:1px solid #cfdcef;border-radius:12px;padding:8px 12px;margin-bottom:10px}
+.modal-extra summary{font-weight:700;cursor:pointer;color:#1f3a5f}
+.dish-btn{background:#fff4e5;color:#7a4a06;border:1px solid #f1d3a6}
+.btn.full.dish-btn{margin-top:8px;text-align:left;font-size:14px}
