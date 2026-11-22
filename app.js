@@ -154,13 +154,48 @@
     const notes = (s.notes || []).map(n => `<div class="note ${esc(n.k)}">${esc(n.t)}</div>`).join('');
     const links = (s.links || []).map(l => `<a class="btn secondary" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.label.replace('Abrir primeiro ponto no Google Maps', '📍 Abrir no Maps').replace('Rota desde o ponto anterior', 'Rota'))}</a>`).join('');
     const title = s.modal && T.modals[s.modal] ? `<span class="link" data-modal="${esc(s.modal)}">${esc(s.title)}</span> ⓘ` : esc(s.title);
-    const pill = s.state ? `<span class="pill ${/COMPRADO|CONFIRMADO|INCLU/i.test(s.state) ? 'ok' : /COMPRAR|RESERVAR/i.test(s.state) ? 'todo' : 'info'}">${esc(s.state)}</span>` : '';
+    const tk = s.tk && T.tickets.find(x => x.id === s.tk);
+    const tst = tk ? (getItem('ticket:' + tk.id) || tk.status) : null;
+    const state = tk && tst === 'ok' && tk.status !== 'ok' ? 'COMPRADO' : s.state;
+    const pill = state ? `<span class="pill ${/COMPRADO|CONFIRMADO|INCLU|RESERVADO/i.test(state) ? 'ok' : /COMPRAR|RESERVAR/i.test(state) ? 'todo' : 'info'}">${esc(state)}</span>` : '';
+    const buy = tk && tst === 'todo' ? `<div class="buybox ${/HOJE|passou|faltam/.test(dueText(tk)) ? 'hot' : ''}"><b>🎟️ ${/local/i.test(tk.label) ? 'Ingresso ainda não comprado — compre no local' : 'FALTA COMPRAR INGRESSO'}</b>
+        <div class="small">${esc(dueText(tk))}${tk.label ? ' · ' + esc(tk.label) : ''}</div>${tk.how ? `<div class="small">${esc(tk.how)}</div>` : ''}
+        <div class="row wrap" style="margin-top:6px">${tk.url ? `<a class="btn" style="font-size:13px;padding:7px 10px" href="${esc(tk.url)}" target="_blank" rel="noopener">${/local/i.test(tk.label) ? 'Site oficial' : 'Comprar no site oficial'}</a>` : ''}<button class="btn secondary" style="font-size:13px;padding:7px 10px" data-tstatus="${tk.id}">✓ Já comprei</button></div></div>`
+      : tk && tst === 'ok' && (tk.files || []).length ? `<div class="attach">${tk.files.map((f, i) => `<button class="btn" style="font-size:13px;padding:7px 10px" data-tfile="${tk.id}" data-tidx="${i}">🎫 ${esc(f.label)}</button>`).join('')}</div>` : '';
     return `<div class="stop ${done ? 'done' : ''} ${s.meal ? 'meal' : ''} ${opts.now ? 'now' : ''}">
-      <div class="time">${esc(s.time)}</div><h3>${title} ${pill}</h3>${s.desc ? `<p>${esc(s.desc)}</p>` : ''}${notes}
+      <div class="time">${esc(s.time)}</div><h3>${title} ${pill}</h3>${buy}${s.desc ? `<p>${esc(s.desc)}</p>` : ''}${notes}
       ${s.ride ? rideBox(s.ride) : ''}
       ${s.modal && T.guides && T.guides[s.modal] ? `<button class="btn full guide-btn" data-guide="${esc(s.modal)}">🎧 Guia no local — percurso + ouvir</button>` : ''}
+      ${(s.lore || []).length ? `<button class="btn full lore-btn" data-lore="${esc(s.lore.join(','))}">📜 História e curiosidades${s.lore.length > 1 ? ' (' + s.lore.length + ')' : ''}: ${esc((loreItem(s.lore[0]) || {}).title || '')}</button>` : ''}
       ${links ? `<div class="stop-actions">${links}</div>` : ''}
       <label class="check"><input type="checkbox" data-done="${esc(s.id)}" ${done ? 'checked' : ''}> feito</label></div>`;
+  }
+
+  /* ---------------- HISTÓRIA DAS CIDADES E DOS LUGARES ---------------- */
+  let hsay = {};
+  function loreItem(ref) { const [cid, id] = ref.split(':'); const c = T.history && T.history[cid]; if (!c) return null; return [...c.legends, ...c.places].find(x => x.id === id) || null; }
+  function histBtn(cid, cls) { const c = T.history && T.history[cid]; return c ? `<button class="btn ${cls || 'secondary'}" data-hist="${cid}">📜 História de ${esc(CITY[cid].name)}</button>` : ''; }
+  function storyBlock(key, title, text) {
+    hsay[key] = title.replace(/^[^\wÀ-ú]+/, '') + '. ' + text;
+    return `<div class="story"><h3>${esc(title)}</h3><p>${esc(text)}</p><button class="btn secondary" style="font-size:13px;padding:7px 10px" data-hsay="${key}" data-label="▶ Ouvir">▶ Ouvir</button></div>`;
+  }
+  function openHistory(cid) {
+    const c = T.history[cid]; stopSpeak(); hsay = {};
+    hsay.intro = c.intro;
+    const dayOf = L => L.stop ? fmtDay(L.stop[0]) : '';
+    let h = `<p>${esc(c.intro)}</p><button class="btn" data-hsay="intro" data-label="▶ Ouvir a história">▶ Ouvir a história</button>
+      <h3 style="margin-top:16px">🕰️ Linha do tempo</h3><div class="tl">${c.timeline.map(t => `<div class="tl-row"><b>${esc(t[0])}</b><span>${esc(t[1])}</span></div>`).join('')}</div>
+      <h3 style="margin-top:16px">🐉 Lendas e histórias</h3>${c.legends.map(L => storyBlock(cid + ':' + L.id, L.title + (L.stop ? ' · ' + dayOf(L) : ''), L.text)).join('')}`;
+    if (c.places.length) h += `<h3 style="margin-top:16px">📍 Os lugares do seu roteiro</h3>${c.places.map(L => storyBlock(cid + ':' + L.id, L.title + ' · ' + dayOf(L), L.text)).join('')}`;
+    h += `<h3 style="margin-top:16px">💡 Curiosidades</h3><ul class="small">${c.curiosities.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
+    openSheet(c.icon + ' ' + c.title, h);
+  }
+  function openLore(refs) {
+    stopSpeak(); hsay = {};
+    const items = refs.split(',').map(r => [r, loreItem(r)]).filter(x => x[1]);
+    const cid = refs.split(':')[0];
+    let h = items.map(([r, L]) => storyBlock(r, L.title, L.text)).join('') + `<div style="margin-top:12px">${histBtn(cid, 'full')}</div>`;
+    openSheet('📜 História e curiosidades', h);
   }
 
   /* ---------------- GUIA NO LOCAL (voz + GPS) ---------------- */
@@ -168,7 +203,7 @@
   const synth = window.speechSynthesis;
   function ptVoice() { const vs = synth ? synth.getVoices() : []; return vs.find(v => v.lang === 'pt-BR') || vs.find(v => /^pt/.test(v.lang)) || null; }
   let speakQueue = [], speakingKey = null;
-  function sayBtn(k) { return document.querySelector('[data-say="' + k + '"]'); }
+  function sayBtn(k) { return document.querySelector('[data-say="' + k + '"]') || document.querySelector('[data-hsay="' + k + '"]'); }
   function setSayLabel(k, on) { const b = k != null && sayBtn(k); if (b) b.textContent = on ? '⏹ Parar' : b.dataset.label; }
   function stopSpeak() { if (synth) synth.cancel(); speakQueue = []; setSayLabel(speakingKey, false); speakingKey = null; }
   function speakChunks(text, key) {
@@ -290,7 +325,7 @@
         h += `<div class="card" style="margin-top:14px"><div class="row wrap">
           <button class="btn secondary" data-modal="${city.transport}">🚇 Transporte em ${esc(city.name)}</button>
           ${hotel ? `<a class="btn secondary" href="${mapsTransit(hotel)}" target="_blank" rel="noopener">🏨 Voltar ao hotel</a>` : `<button class="btn secondary" data-goto="settings">🏨 Cadastrar hotel</button>`}
-          <button class="btn secondary" data-goto="roteiro" data-day="${day.date}">📅 Dia completo</button></div></div>`;
+          <button class="btn secondary" data-goto="roteiro" data-day="${day.date}">📅 Dia completo</button>${histBtn(city.id)}</div></div>`;
       }
     }
     return h;
@@ -304,12 +339,16 @@
     if (cityFilter) {
       const c = CITY[cityFilter], hotel = hotelOf(c.id);
       h += `<div class="row wrap" style="margin-bottom:10px"><button class="btn secondary" data-modal="${c.transport}">🚇 Como se locomover + bilhetes</button>
-        ${hotel ? `<a class="btn secondary" href="${mapsTransit(hotel)}" target="_blank" rel="noopener">🏨 Hotel</a>` : ''}</div>`;
+        ${hotel ? `<a class="btn secondary" href="${mapsTransit(hotel)}" target="_blank" rel="noopener">🏨 Hotel</a>` : ''}${histBtn(c.id)}</div>`;
     }
+    let prevCity = null;
     for (const d of T.days.filter(d => !cityFilter || d.city === cityFilter)) {
       const doneN = d.stops.filter(s => getItem('done:' + s.id)).length;
-      h += `<div class="card day ${d.date === today ? 'today' : ''}" id="day-${d.date}"><div class="day-head"><div><h2>${esc(d.title)}</h2><div class="muted small">${CITY[d.city].flag} ${esc(d.sub)} • ${doneN}/${d.stops.length}</div></div>${d.badge ? `<span class="badge">${esc(d.badge)}</span>` : ''}</div>` +
+      const buyN = d.stops.filter(s => { const t = s.tk && T.tickets.find(x => x.id === s.tk); return t && (getItem('ticket:' + t.id) || t.status) === 'todo'; }).length;
+      h += `<div class="card day ${d.date === today ? 'today' : ''}" id="day-${d.date}"><div class="day-head"><div><h2>${esc(d.title)}</h2><div class="muted small">${CITY[d.city].flag} ${esc(d.sub)} • ${doneN}/${d.stops.length}${buyN ? ` • <b style="color:var(--red)">🎟️ ${buyN} ingresso${buyN > 1 ? 's' : ''} a comprar</b>` : ''}</div></div>${d.badge ? `<span class="badge">${esc(d.badge)}</span>` : ''}</div>` +
+        (d.city !== prevCity && T.history && T.history[d.city] ? `<button class="btn full hist-btn" data-hist="${d.city}">📜 ${esc(T.history[d.city].title)} — toque para ler ou ouvir</button>` : '') +
         d.stops.map(s => stopCard(d, s)).join('') + '</div>';
+      prevCity = d.city;
     }
     return h;
   }
@@ -431,6 +470,7 @@
       h += `<div class="card"><h3>🛠️ Correções desta versão</h3><ul class="small">${T.fixes.map(f => `<li>${esc(f)}</li>`).join('')}</ul></div>`;
     } else {
       const c = CITY[dicasCity], t = tp.cities[dicasCity];
+      if (T.history && T.history[c.id]) h += `<div class="card"><h3>${T.history[c.id].icon} ${esc(T.history[c.id].title)}</h3><p class="small">${esc(T.history[c.id].intro.split('. ').slice(0, 2).join('. '))}.</p>${histBtn(c.id, 'full')}</div>`;
       h += `<div class="card"><h3>🚇 Transporte mais barato</h3><p class="small">Bilhete certo, onde comprar e como validar para o seu roteiro.</p><button class="btn full" data-modal="${c.transport}">Abrir guia de transporte</button></div>`;
       h += `<div class="card"><h3>💧 Água</h3><div class="small">${t.water}</div></div>`;
       h += `<div class="card"><h3>🚕 Uber / Bolt</h3><div class="small">${esc(t.rides)}</div><div class="small muted" style="margin-top:4px">Só nos casos da regra: metrô fechado, ou malas à noite.</div></div>`;
@@ -486,7 +526,8 @@
   // Abre no aplicativo do iPhone quando existir (mapas, Uber, Bolt, Instagram); se o app não abrir, cai no site
   function mapAppUrl(u) {
     if (!/(^|\.)google\.[a-z.]+$/.test(u.hostname) || !u.pathname.startsWith('/maps')) return null;
-    const q = u.searchParams, app = settings.maps || 'google';
+    // sem internet: Apple Mapas (tem rota a pé e de metrô offline com mapa baixado); Google Maps offline só faz rota de carro
+    const q = u.searchParams, app = !navigator.onLine ? 'apple' : (settings.maps || 'google');
     const dest = q.get('destination'), orig = q.get('origin'), query = q.get('query');
     const mode = q.get('travelmode') || 'transit';
     if (app === 'apple') {
@@ -520,12 +561,24 @@
     const web = a.href; let left = false;
     const onHide = () => { left = true; };
     document.addEventListener('visibilitychange', onHide, { once: true });
+    window.addEventListener('blur', onHide, { once: true });
+    window.addEventListener('pagehide', onHide, { once: true });
+    if (!navigator.onLine) toast('Sem internet: abrindo no Apple Mapas (use os mapas baixados)');
     location.href = app;
-    setTimeout(() => { document.removeEventListener('visibilitychange', onHide); if (!left && document.visibilityState === 'visible') window.open(web, '_blank'); }, 1500);
+    // só cai no site se houver internet e o app realmente não abriu
+    setTimeout(() => { document.removeEventListener('visibilitychange', onHide); window.removeEventListener('blur', onHide); window.removeEventListener('pagehide', onHide);
+      if (!left && navigator.onLine && document.visibilityState === 'visible' && document.hasFocus()) window.open(web, '_blank'); }, 2500);
   }, true);
 
   document.addEventListener('click', async e => {
     const tf = e.target.closest('[data-tfile]'); if (tf) { openTicketFile(tf.dataset.tfile, +tf.dataset.tidx); return; }
+    const hz = e.target.closest('[data-hist],[data-lore],[data-hsay]');
+    if (hz) {
+      if (hz.dataset.hist) { openHistory(hz.dataset.hist); return; }
+      if (hz.dataset.lore) { openLore(hz.dataset.lore); return; }
+      const k = hz.dataset.hsay; if (speakingKey === k) { stopSpeak(); return; }
+      if (hsay[k]) speakChunks(hsay[k], k); return;
+    }
     const g = e.target.closest('[data-guide],[data-say],[data-gps]');
     if (g) {
       if (g.dataset.guide) { openGuide(g.dataset.guide); return; }

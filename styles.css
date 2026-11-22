@@ -382,3 +382,12 @@ input[type=text],input[type=number],input[type=password],input[type=url],select,
 .gstop ul{margin:4px 0 6px;padding-left:20px}
 .gnum{flex:none;width:30px;height:30px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:850}
 .pill.check{background:#fff3cd;color:#7a5600}
+.buybox{margin:8px 0 4px;padding:9px 11px;border-radius:11px;background:#fff2e2;border-left:5px solid var(--gold);color:#5a3d06}
+.buybox.hot{background:#fde8e8;border-left-color:var(--red);color:#7a1414}
+.buybox .btn{margin-right:6px}
+.hist-btn{margin:10px 0 2px;background:#f6efe1;color:#5a3d06;border:1px solid #e4d3ae;text-align:left}
+.lore-btn{margin-top:8px;background:#f6efe1;color:#5a3d06;border:1px solid #e4d3ae;text-align:left;font-size:14px}
+.story{border-top:1px solid var(--line);padding:10px 0}
+.story h3{margin:0 0 4px;font-size:16px}.story p{margin:0 0 8px}
+.tl{border-left:3px solid var(--gold);padding-left:10px}
+.tl-row{display:flex;gap:10px;padding:4px 0;font-size:14px}.tl-row b{min-width:78px;color:var(--navy)}
