@@ -411,3 +411,7 @@ input[type=text],input[type=number],input[type=password],input[type=url],select,
 .modal-extra summary{font-weight:700;cursor:pointer;color:#1f3a5f}
 .dish-btn{background:#fff4e5;color:#7a4a06;border:1px solid #f1d3a6}
 .btn.full.dish-btn{margin-top:8px;text-align:left;font-size:14px}
+.daychips{position:sticky;top:0;z-index:5;background:var(--bg,#f4f1ea);padding:6px 0;margin-bottom:8px}
+.daychips .chip{font-size:13px}
+.cityact{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px}
+.cityact .btn{font-size:12.5px;padding:8px 6px;min-width:0;white-space:normal;line-height:1.15;text-align:center;justify-content:center}

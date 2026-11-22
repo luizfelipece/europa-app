@@ -115,7 +115,7 @@
   }
 
   /* ---------------- UI base ---------------- */
-  let tab = LS.get('tab', 'agora'), cityFilter = LS.get('city', null), dicasCity = null;
+  let tab = LS.get('tab', 'agora'), cityFilter = LS.get('city', null), dicasCity = null, dayFilter;
   function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 2600); }
   function openSheet(title, html) {
     $('#sheet-title').textContent = title; $('#sheet-body').innerHTML = html; $('#sheet').hidden = false; $('#sheet-body').scrollTop = 0;
@@ -413,11 +413,22 @@
       T.cities.map(c => `<button class="chip ${cityFilter === c.id ? 'active' : ''}" data-city="${c.id}">${c.flag} ${esc(c.name)}</button>`).join('') + '</div>';
     if (cityFilter) {
       const c = CITY[cityFilter], hotel = hotelOf(c.id);
-      h += `<div class="row wrap" style="margin-bottom:10px"><button class="btn secondary" data-modal="${c.transport}">🚇 Como se locomover + bilhetes</button>
+      h += `<div class="cityact"><button class="btn secondary" data-modal="${c.transport}">🚇 Transporte</button>
         ${hotel ? `<a class="btn secondary" href="${mapsTransit(hotel)}" target="_blank" rel="noopener">🏨 Hotel</a>` : ''}${tipsBtn(c.id)}${dishesBtn(c.id)}${souvBtn(c.id)}${photoBtn(c.id)}${histBtn(c.id)}</div>`;
     }
     let prevCity = null;
-    for (const d of T.days.filter(d => !cityFilter || d.city === cityFilter)) {
+    let shown = T.days.filter(d => !cityFilter || d.city === cityFilter);
+    if (cityFilter) {
+      const ds = shown.map(d => d.date);
+      if (dayFilter && !ds.includes(dayFilter)) dayFilter = null;
+      if (dayFilter === undefined || dayFilter === null && !render.allDays) dayFilter = ds.includes(today) ? today : ds[0];
+      const wd = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+      h += `<div class="chips daychips"><button class="chip ${!dayFilter ? 'active' : ''}" data-dayf="">Todos os dias</button>` +
+        shown.map(d => `<button class="chip ${dayFilter === d.date ? 'active' : ''}" data-dayf="${d.date}">${d.date === today ? '⭐ Hoje ' : ''}${wd[new Date(d.date + 'T12:00').getDay()]} ${fmtDay(d.date)}</button>`).join('') + '</div>';
+      if (dayFilter) shown = shown.filter(d => d.date === dayFilter);
+      prevCity = cityFilter;
+    }
+    for (const d of shown) {
       const doneN = d.stops.filter(s => getItem('done:' + s.id)).length;
       const buyN = d.stops.filter(s => { const t = s.tk && T.tickets.find(x => x.id === s.tk); return t && (getItem('ticket:' + t.id) || t.status) === 'todo'; }).length;
       h += `<div class="card day ${d.date === today ? 'today' : ''}" id="day-${d.date}"><div class="day-head"><div><h2>${esc(d.title)}</h2><div class="muted small">${CITY[d.city].flag} ${esc(d.sub)} • ${doneN}/${d.stops.length}${buyN ? ` • <b style="color:var(--red)">🎟️ ${buyN} ingresso${buyN > 1 ? 's' : ''} a comprar</b>` : ''}</div></div>${d.badge ? `<span class="badge">${esc(d.badge)}</span>` : ''}</div>` +
@@ -664,15 +675,16 @@
         return;
       }
     }
-    const el = e.target.closest('[data-modal],[data-city],[data-dcity],[data-copy],[data-goto],[data-act],[data-tstatus],[data-delexp],[data-file]');
+    const el = e.target.closest('[data-modal],[data-city],[data-dayf],[data-dcity],[data-copy],[data-goto],[data-act],[data-tstatus],[data-delexp],[data-file]');
     if (!el) return;
     if (el.dataset.copy) { try { await navigator.clipboard.writeText(el.dataset.copy); toast('Destino copiado — cole no app'); } catch (x) { } if (el.tagName === 'BUTTON') return; }
     if (el.dataset.modal) { showModal(el.dataset.modal); return; }
-    if (el.dataset.city !== undefined) { cityFilter = el.dataset.city || null; LS.set('city', cityFilter); render.jump = false; render(); return; }
+    if (el.dataset.city !== undefined) { cityFilter = el.dataset.city || null; LS.set('city', cityFilter); dayFilter = undefined; render.allDays = false; render.jump = false; render(); window.scrollTo(0, 0); return; }
+    if (el.dataset.dayf !== undefined) { dayFilter = el.dataset.dayf || null; render.allDays = !dayFilter; render.jump = false; render(); window.scrollTo(0, 0); return; }
     if (el.dataset.dcity !== undefined) { dicasCity = el.dataset.dcity || null; render(); return; }
     if (el.dataset.goto === 'settings') { renderSettings(); return; }
     if (el.dataset.goto === 'ingressos') { tab = 'ingressos'; LS.set('tab', tab); render(); window.scrollTo(0, 0); return; }
-    if (el.dataset.goto === 'roteiro') { tab = 'roteiro'; cityFilter = null; render.jump = el.dataset.day; render(); return; }
+    if (el.dataset.goto === 'roteiro') { tab = 'roteiro'; LS.set('tab', tab); const dd = T.days.find(x => x.date === el.dataset.day); if (dd) { cityFilter = dd.city; LS.set('city', cityFilter); dayFilter = dd.date; render.allDays = false; render.jump = false; } else { cityFilter = null; render.jump = el.dataset.day; } render(); window.scrollTo(0, 0); return; }
     if (el.dataset.act === 'rates') { updateRates(); return; }
     if (el.dataset.act === 'manualrate') {
       const cur = prompt('Qual moeda? (EUR, GBP, CZK, PLN, HUF)', currentCurrency()); if (!cur) return;
