@@ -166,10 +166,26 @@
       <div class="time">${esc(s.time)}</div><h3>${title} ${pill}</h3>${buy}${s.desc ? `<p>${esc(s.desc)}</p>` : ''}${notes}
       ${s.ride ? rideBox(s.ride) : ''}
       ${s.modal && T.guides && T.guides[s.modal] ? `<button class="btn full guide-btn" data-guide="${esc(s.modal)}">🎧 Guia no local — percurso + ouvir</button>` : ''}
+      ${(s.photos || []).length ? `<button class="btn full photo-btn" data-sphotos="${esc(s.photos.join(','))}">📸 Onde tirar a melhor foto${s.photos.length > 1 ? ' (' + s.photos.length + ' pontos)' : ''}</button>` : ''}
       ${(s.lore || []).length ? `<button class="btn full lore-btn" data-lore="${esc(s.lore.join(','))}">📜 História e curiosidades${s.lore.length > 1 ? ' (' + s.lore.length + ')' : ''}: ${esc((loreItem(s.lore[0]) || {}).title || '')}</button>` : ''}
       ${links ? `<div class="stop-actions">${links}</div>` : ''}
       <label class="check"><input type="checkbox" data-done="${esc(s.id)}" ${done ? 'checked' : ''}> feito</label></div>`;
   }
+
+  /* ---------------- MELHORES FOTOS ---------------- */
+  function photoItem(ref) { const [cid, id] = ref.split(':'); return ((T.photos || {})[cid] || []).find(x => x.id === id); }
+  function photoBlock(x) {
+    return `<div class="tipsec"><h3>📸 ${esc(x.title)}</h3><div class="small"><b>Onde:</b> ${esc(x.where)}</div><div class="small"><b>Melhor hora:</b> ${esc(x.when)}</div><div class="small" style="margin-top:4px">💡 ${esc(x.tip)}</div>${x.day ? `<div class="small muted">📅 ${fmtDay(x.day)}</div>` : ''}
+      <a class="btn secondary" style="font-size:13px;padding:7px 10px;margin-top:6px" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x.q)}">📍 Abrir no mapa</a></div>`;
+  }
+  function openPhotos(cid) {
+    stopSpeak();
+    const L = (T.photos || {})[cid] || [];
+    openSheet('📸 Melhores fotos — ' + CITY[cid].flag + ' ' + CITY[cid].name,
+      `<div class="note small">🌆 Em dezembro o sol se põe por volta das 16:00. A <b>hora azul</b> (16:00–16:40) é a melhor para pontes e monumentos acesos; lugares cheios rendem foto limpa só bem cedo.</div>` + L.map(photoBlock).join(''));
+  }
+  function openStopPhotos(refs) { stopSpeak(); openSheet('📸 Onde tirar a melhor foto', refs.split(',').map(photoItem).filter(Boolean).map(photoBlock).join('')); }
+  function photoBtn(cid, cls) { return (T.photos || {})[cid] ? `<button class="btn ${cls || 'secondary'}" data-photos="${cid}">📸 Melhores fotos</button>` : ''; }
 
   /* ---------------- DICAS DO PAÍS ---------------- */
   function tipsBtn(cid, cls) { const t = T.tips.cities[cid]; return t && t.money ? `<button class="btn ${cls || 'secondary'}" data-ctips="${cid}">💡 Dicas de ${esc(CITY[cid].name)}</button>` : ''; }
@@ -358,7 +374,7 @@
         h += `<div class="card" style="margin-top:14px"><div class="row wrap">
           <button class="btn secondary" data-modal="${city.transport}">🚇 Transporte em ${esc(city.name)}</button>
           ${hotel ? `<a class="btn secondary" href="${mapsTransit(hotel)}" target="_blank" rel="noopener">🏨 Voltar ao hotel</a>` : `<button class="btn secondary" data-goto="settings">🏨 Cadastrar hotel</button>`}
-          <button class="btn secondary" data-goto="roteiro" data-day="${day.date}">📅 Dia completo</button>${tipsBtn(city.id)}${souvBtn(city.id)}${histBtn(city.id)}</div></div>`;
+          <button class="btn secondary" data-goto="roteiro" data-day="${day.date}">📅 Dia completo</button>${tipsBtn(city.id)}${souvBtn(city.id)}${photoBtn(city.id)}${histBtn(city.id)}</div></div>`;
       }
     }
     return h;
@@ -372,14 +388,14 @@
     if (cityFilter) {
       const c = CITY[cityFilter], hotel = hotelOf(c.id);
       h += `<div class="row wrap" style="margin-bottom:10px"><button class="btn secondary" data-modal="${c.transport}">🚇 Como se locomover + bilhetes</button>
-        ${hotel ? `<a class="btn secondary" href="${mapsTransit(hotel)}" target="_blank" rel="noopener">🏨 Hotel</a>` : ''}${tipsBtn(c.id)}${souvBtn(c.id)}${histBtn(c.id)}</div>`;
+        ${hotel ? `<a class="btn secondary" href="${mapsTransit(hotel)}" target="_blank" rel="noopener">🏨 Hotel</a>` : ''}${tipsBtn(c.id)}${souvBtn(c.id)}${photoBtn(c.id)}${histBtn(c.id)}</div>`;
     }
     let prevCity = null;
     for (const d of T.days.filter(d => !cityFilter || d.city === cityFilter)) {
       const doneN = d.stops.filter(s => getItem('done:' + s.id)).length;
       const buyN = d.stops.filter(s => { const t = s.tk && T.tickets.find(x => x.id === s.tk); return t && (getItem('ticket:' + t.id) || t.status) === 'todo'; }).length;
       h += `<div class="card day ${d.date === today ? 'today' : ''}" id="day-${d.date}"><div class="day-head"><div><h2>${esc(d.title)}</h2><div class="muted small">${CITY[d.city].flag} ${esc(d.sub)} • ${doneN}/${d.stops.length}${buyN ? ` • <b style="color:var(--red)">🎟️ ${buyN} ingresso${buyN > 1 ? 's' : ''} a comprar</b>` : ''}</div></div>${d.badge ? `<span class="badge">${esc(d.badge)}</span>` : ''}</div>` +
-        (d.city !== prevCity ? `<div class="citybtns"><button class="btn tips-btn" data-ctips="${d.city}">💡 Dicas de ${esc(CITY[d.city].name)}<small>dinheiro, saques, golpes, gorjeta</small></button>${T.history && T.history[d.city] ? `<button class="btn hist-btn" data-hist="${d.city}">📜 História<small>ler ou ouvir</small></button>` : ''}${T.tips.cities[d.city] && T.tips.cities[d.city].souvenirs ? `<button class="btn souv-btn" data-souv="${d.city}">🎁 Lembranças<small>o que comprar</small></button>` : ''}</div>` : '') +
+        (d.city !== prevCity ? `<div class="citybtns"><button class="btn tips-btn" data-ctips="${d.city}">💡 Dicas de ${esc(CITY[d.city].name)}<small>dinheiro, saques, golpes, gorjeta</small></button>${T.history && T.history[d.city] ? `<button class="btn hist-btn" data-hist="${d.city}">📜 História<small>ler ou ouvir</small></button>` : ''}${T.tips.cities[d.city] && T.tips.cities[d.city].souvenirs ? `<button class="btn souv-btn" data-souv="${d.city}">🎁 Lembranças<small>o que comprar</small></button>` : ''}${(T.photos || {})[d.city] ? `<button class="btn photo-btn" data-photos="${d.city}">📸 Fotos<small>melhores pontos</small></button>` : ''}</div>` : '') +
         d.stops.map(s => stopCard(d, s)).join('') + '</div>';
       prevCity = d.city;
     }
@@ -601,6 +617,7 @@
     const tf = e.target.closest('[data-tfile]'); if (tf) { openTicketFile(tf.dataset.tfile, +tf.dataset.tidx); return; }
     const ct = e.target.closest('[data-ctips]'); if (ct) { openCountry(ct.dataset.ctips); return; }
     const sv = e.target.closest('[data-souv]'); if (sv) { openSouv(sv.dataset.souv); return; }
+    const ph = e.target.closest('[data-photos],[data-sphotos]'); if (ph) { if (ph.dataset.photos) openPhotos(ph.dataset.photos); else openStopPhotos(ph.dataset.sphotos); return; }
     const hz = e.target.closest('[data-hist],[data-lore],[data-hsay]');
     if (hz) {
       if (hz.dataset.hist) { openHistory(hz.dataset.hist); return; }

@@ -404,3 +404,6 @@ input[type=text],input[type=number],input[type=password],input[type=url],select,
 .citybtns .btn small{font-size:11px;white-space:normal}
 .tipsec.souv{display:flex;gap:12px;align-items:flex-start}
 .souvimg{flex:0 0 64px;width:64px;height:64px}.souvimg svg{width:64px;height:64px;display:block}
+.photo-btn{background:#e8f0fb;color:#1f3a5f;border:1px solid #bcd0ec}
+.btn.full.photo-btn{margin-top:8px;text-align:left;font-size:14px}
+.citybtns{grid-template-columns:1fr 1fr}
