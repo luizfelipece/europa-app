@@ -171,6 +171,28 @@
       <label class="check"><input type="checkbox" data-done="${esc(s.id)}" ${done ? 'checked' : ''}> feito</label></div>`;
   }
 
+  /* ---------------- DICAS DO PAÍS ---------------- */
+  function tipsBtn(cid, cls) { const t = T.tips.cities[cid]; return t && t.money ? `<button class="btn ${cls || 'secondary'}" data-ctips="${cid}">💡 Dicas de ${esc(CITY[cid].name)}</button>` : ''; }
+  function countryHtml(cid) {
+    const t = T.tips.cities[cid], c = CITY[cid], sec = (ic, tt, body) => body ? `<div class="tipsec"><h3>${ic} ${tt}</h3><div class="small">${body}</div></div>` : '';
+    const own = t.own && /^SIM/.test(t.own);
+    return `<div class="note ${own ? 'warn' : ''}"><b>${esc(t.country || '')}</b> · Moeda: <b>${esc(t.currency || c.currency)}</b><br>Moeda própria? <b>${esc(t.own || '')}</b>${t.cashplan ? `<div style="margin-top:4px">💵 ${esc(t.cashplan)}</div>` : ''}</div>` +
+      sec('💰', 'Dinheiro: cartão ou espécie?', t.money + (t.cash ? `<div style="margin-top:6px"><b>Quanto levar em espécie:</b> ${esc(t.cash)}</div>` : '')) +
+      sec('🏧', 'Onde sacar barato', t.atm + '<div style="margin-top:6px">Na tela do caixa e na maquininha, escolha sempre a <b>moeda local</b> (“without conversion”), nunca reais.</div>') +
+      sec('📅', 'Dias em que fecha', t.closed) +
+      sec('🚨', 'Golpes e batedores de carteira', esc(t.scams)) +
+      sec('🍽️', 'Gorjeta', esc(t.tipping)) +
+      sec('🚻', 'Banheiro', esc(t.toilets)) +
+      sec('💧', 'Água', t.water) +
+      sec('🚕', 'Uber / Bolt', esc(t.rides)) +
+      sec('🔌', 'Tomada', esc(t.plug)) +
+      sec('⭐', 'Bom saber', esc(t.extra)) +
+      `<div class="tipsec"><h3>🗣️ Frases úteis</h3>${t.phrases.map(p => `<div class="phrase"><span>${esc(p[0])}</span><b>${esc(p[1])}</b></div>`).join('')}</div>` +
+      `<div class="tipsec"><h3>🆘 Emergência</h3><div class="big" style="font-size:22px">${esc(t.emergency)}</div></div>` +
+      `<div class="row wrap" style="margin-top:10px"><button class="btn secondary" data-modal="${c.transport}">🚇 Transporte e bilhetes</button>${histBtn(cid)}</div>`;
+  }
+  function openCountry(cid) { stopSpeak(); openSheet('💡 Dicas — ' + CITY[cid].flag + ' ' + CITY[cid].name, countryHtml(cid)); }
+
   /* ---------------- HISTÓRIA DAS CIDADES E DOS LUGARES ---------------- */
   let hsay = {};
   function loreItem(ref) { const [cid, id] = ref.split(':'); const c = T.history && T.history[cid]; if (!c) return null; return [...c.legends, ...c.places].find(x => x.id === id) || null; }
@@ -325,7 +347,7 @@
         h += `<div class="card" style="margin-top:14px"><div class="row wrap">
           <button class="btn secondary" data-modal="${city.transport}">🚇 Transporte em ${esc(city.name)}</button>
           ${hotel ? `<a class="btn secondary" href="${mapsTransit(hotel)}" target="_blank" rel="noopener">🏨 Voltar ao hotel</a>` : `<button class="btn secondary" data-goto="settings">🏨 Cadastrar hotel</button>`}
-          <button class="btn secondary" data-goto="roteiro" data-day="${day.date}">📅 Dia completo</button>${histBtn(city.id)}</div></div>`;
+          <button class="btn secondary" data-goto="roteiro" data-day="${day.date}">📅 Dia completo</button>${tipsBtn(city.id)}${histBtn(city.id)}</div></div>`;
       }
     }
     return h;
@@ -339,14 +361,14 @@
     if (cityFilter) {
       const c = CITY[cityFilter], hotel = hotelOf(c.id);
       h += `<div class="row wrap" style="margin-bottom:10px"><button class="btn secondary" data-modal="${c.transport}">🚇 Como se locomover + bilhetes</button>
-        ${hotel ? `<a class="btn secondary" href="${mapsTransit(hotel)}" target="_blank" rel="noopener">🏨 Hotel</a>` : ''}${histBtn(c.id)}</div>`;
+        ${hotel ? `<a class="btn secondary" href="${mapsTransit(hotel)}" target="_blank" rel="noopener">🏨 Hotel</a>` : ''}${tipsBtn(c.id)}${histBtn(c.id)}</div>`;
     }
     let prevCity = null;
     for (const d of T.days.filter(d => !cityFilter || d.city === cityFilter)) {
       const doneN = d.stops.filter(s => getItem('done:' + s.id)).length;
       const buyN = d.stops.filter(s => { const t = s.tk && T.tickets.find(x => x.id === s.tk); return t && (getItem('ticket:' + t.id) || t.status) === 'todo'; }).length;
       h += `<div class="card day ${d.date === today ? 'today' : ''}" id="day-${d.date}"><div class="day-head"><div><h2>${esc(d.title)}</h2><div class="muted small">${CITY[d.city].flag} ${esc(d.sub)} • ${doneN}/${d.stops.length}${buyN ? ` • <b style="color:var(--red)">🎟️ ${buyN} ingresso${buyN > 1 ? 's' : ''} a comprar</b>` : ''}</div></div>${d.badge ? `<span class="badge">${esc(d.badge)}</span>` : ''}</div>` +
-        (d.city !== prevCity && T.history && T.history[d.city] ? `<button class="btn full hist-btn" data-hist="${d.city}">📜 ${esc(T.history[d.city].title)} — toque para ler ou ouvir</button>` : '') +
+        (d.city !== prevCity ? `<div class="citybtns"><button class="btn tips-btn" data-ctips="${d.city}">💡 Dicas de ${esc(CITY[d.city].name)}<small>dinheiro, saques, golpes, gorjeta</small></button>${T.history && T.history[d.city] ? `<button class="btn hist-btn" data-hist="${d.city}">📜 História<small>ler ou ouvir</small></button>` : ''}</div>` : '') +
         d.stops.map(s => stopCard(d, s)).join('') + '</div>';
       prevCity = d.city;
     }
@@ -469,14 +491,8 @@
       h += `<div class="card"><h3>✅ Antes de viajar <span class="progress small">${okc}/${ck.length}</span></h3>` + ck.map(c => `<label class="check" style="color:var(--ink)"><input type="checkbox" data-check="${c.id}" ${getItem('check:' + c.id) ? 'checked' : ''}> ${esc(c.t)}</label>`).join('') + '</div>';
       h += `<div class="card"><h3>🛠️ Correções desta versão</h3><ul class="small">${T.fixes.map(f => `<li>${esc(f)}</li>`).join('')}</ul></div>`;
     } else {
-      const c = CITY[dicasCity], t = tp.cities[dicasCity];
-      if (T.history && T.history[c.id]) h += `<div class="card"><h3>${T.history[c.id].icon} ${esc(T.history[c.id].title)}</h3><p class="small">${esc(T.history[c.id].intro.split('. ').slice(0, 2).join('. '))}.</p>${histBtn(c.id, 'full')}</div>`;
-      h += `<div class="card"><h3>🚇 Transporte mais barato</h3><p class="small">Bilhete certo, onde comprar e como validar para o seu roteiro.</p><button class="btn full" data-modal="${c.transport}">Abrir guia de transporte</button></div>`;
-      h += `<div class="card"><h3>💧 Água</h3><div class="small">${t.water}</div></div>`;
-      h += `<div class="card"><h3>🚕 Uber / Bolt</h3><div class="small">${esc(t.rides)}</div><div class="small muted" style="margin-top:4px">Só nos casos da regra: metrô fechado, ou malas à noite.</div></div>`;
-      h += `<div class="card"><h3>🗣️ Frases úteis</h3>${t.phrases.map(p => `<div class="phrase"><span>${esc(p[0])}</span><b>${esc(p[1])}</b></div>`).join('')}</div>`;
-      h += `<div class="card"><h3>🆘 Emergência</h3><div class="big" style="font-size:24px">${esc(t.emergency)}</div>
-        <div class="row wrap" style="margin-top:8px"><a class="btn secondary" href="tel:112">Ligar 112</a><a class="btn secondary" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent('Embaixada do Brasil ' + c.name)}">🇧🇷 Embaixada/consulado</a></div></div>`;
+      const c = CITY[dicasCity];
+      h += `<div class="card">${countryHtml(c.id)}</div>`;
     }
     return h;
   }
@@ -572,6 +588,7 @@
 
   document.addEventListener('click', async e => {
     const tf = e.target.closest('[data-tfile]'); if (tf) { openTicketFile(tf.dataset.tfile, +tf.dataset.tidx); return; }
+    const ct = e.target.closest('[data-ctips]'); if (ct) { openCountry(ct.dataset.ctips); return; }
     const hz = e.target.closest('[data-hist],[data-lore],[data-hsay]');
     if (hz) {
       if (hz.dataset.hist) { openHistory(hz.dataset.hist); return; }
