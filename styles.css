@@ -402,3 +402,5 @@ input[type=text],input[type=number],input[type=password],input[type=url],select,
 .citybtns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
 .citybtns .btn{min-width:0;font-size:13px;padding:8px 8px;white-space:normal;line-height:1.2}
 .citybtns .btn small{font-size:11px;white-space:normal}
+.tipsec.souv{display:flex;gap:12px;align-items:flex-start}
+.souvimg{flex:0 0 64px;width:64px;height:64px}.souvimg svg{width:64px;height:64px;display:block}

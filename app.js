@@ -195,7 +195,7 @@
   function souvHtml(cid) {
     const t = T.tips.cities[cid];
     return `<p class="small muted">Lembranças típicas para a estante — escolha as que mais gostar.</p>` +
-      t.souvenirs.map(x => `<div class="tipsec"><h3>${esc(x.item)}</h3><div class="small">${esc(x.tip)}</div></div>`).join('') +
+      t.souvenirs.map(x => `<div class="tipsec souv">${x.svg ? `<div class="souvimg">${x.svg}</div>` : ''}<div><h3>${esc(x.item)}</h3><div class="small">${esc(x.tip)}</div></div></div>`).join('') +
       (t.shops ? `<h3 style="margin-top:14px">📍 Onde comprar — do mais barato ao mais caro</h3><p class="small muted">Estimativa: a mesma miniatura costuma custar menos nas ruas de lojas e mercados do que nas lojas oficiais, de museu e de aeroporto.</p>` + t.shops.map(x => `<div class="tipsec"><h3>${esc(x.name)} <span class="pill ${/mais barato/.test(x.price) ? 'ok' : /caro/.test(x.price) ? 'todo' : 'info'}">${esc(x.price || '')}</span></h3><div class="small">${esc(x.what)}</div><div class="small muted">📅 ${esc(x.day)}</div>
         <a class="btn secondary" style="font-size:13px;padding:7px 10px;margin-top:6px" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x.q)}">📍 Abrir no mapa</a></div>`).join('') : '') +
       `<div class="note small">🛍️ Compre em lojas e mercados de Natal, nunca de vendedor de rua. Peça para embrulhar bem o que for frágil. Globo de neve com mais de 100 ml vai na mala despachada.</div>`;
