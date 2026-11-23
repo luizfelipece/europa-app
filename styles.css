@@ -415,3 +415,8 @@ input[type=text],input[type=number],input[type=password],input[type=url],select,
 .daychips .chip{font-size:13px}
 .cityact{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px}
 .cityact .btn{font-size:12.5px;padding:8px 6px;min-width:0;white-space:normal;line-height:1.15;text-align:center;justify-content:center}
+
+.transit-btn{white-space:normal;margin:10px 0 4px;background:#eaf0fb;color:#17386b;border:1px solid #c4d3ee;text-align:left}
+.transit-btn small{display:block;white-space:normal;line-height:1.35;font-weight:500;font-size:12px;opacity:.85;margin-top:2px}
+.ptbox{margin:6px 0;padding:8px 10px;border-radius:10px;background:#eaf0fb;border:1px solid #c4d3ee;font-size:13px;color:#17386b}
+.ptbox .link{text-decoration:underline;cursor:pointer;white-space:nowrap}

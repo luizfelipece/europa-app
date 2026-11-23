@@ -176,6 +176,7 @@
       : tk && tst === 'ok' && (tk.files || []).length ? `<div class="attach">${tk.files.map((f, i) => `<button class="btn" style="font-size:13px;padding:7px 10px" data-tfile="${tk.id}" data-tidx="${i}">🎫 ${esc(f.label)}</button>`).join('')}</div>` : '';
     return `<div class="stop ${done ? 'done' : ''} ${s.meal ? 'meal' : ''} ${opts.now ? 'now' : ''}">
       <div class="time">${esc(s.time)}</div><h3>${title} ${pill}</h3>${buy}${s.desc ? `<p>${esc(s.desc)}</p>` : ''}${notes}
+      ${s.pt ? `<div class="ptbox">🎫 <b>Bilhete:</b> ${esc(s.pt)} <span class="link" data-transit="${day.date}">como comprar</span></div>` : ''}
       ${s.ride ? rideBox(s.ride) : ''}
       ${s.modal && T.guides && T.guides[s.modal] ? `<button class="btn full guide-btn" data-guide="${esc(s.modal)}">🎧 Guia no local — percurso + ouvir</button>` : ''}
       ${(s.dishes || []).length ? `<button class="btn full dish-btn" data-dishes="${esc(s.dishes.join(','))}">🍽️ O que pedir e a história dos pratos (${s.dishes.length})</button>` : ''}
@@ -395,6 +396,7 @@
         const when = mins < 60 ? `em ${mins} min` : mins < 1440 ? `em ${Math.floor(mins / 60)}h${String(mins % 60).padStart(2, '0')}` : fmtDay(next.day.date);
         h += `<div class="kicker" style="margin:14px 2px 4px">Próximo • ${when}</div>${stopCard(next.day, next.s)}`;
       }
+      h += transitAlert();
       h += tripAlert();
       if (pendingTickets().some(t => t.due && (new Date(t.due + 'T23:59') - n) / 864e5 <= 3)) h += pendingCard(3);
       if (city) {
@@ -435,6 +437,7 @@
       const buyN = d.stops.filter(s => { const t = s.tk && T.tickets.find(x => x.id === s.tk); return t && (getItem('ticket:' + t.id) || t.status) === 'todo'; }).length;
       h += `<div class="card day ${d.date === today ? 'today' : ''}" id="day-${d.date}"><div class="day-head"><div><h2>${esc(d.title)}</h2><div class="muted small">${CITY[d.city].flag} ${esc(d.sub)} • ${doneN}/${d.stops.length}${buyN ? ` • <b style="color:var(--red)">🎟️ ${buyN} ingresso${buyN > 1 ? 's' : ''} a comprar</b>` : ''}</div></div>${d.badge ? `<span class="badge">${esc(d.badge)}</span>` : ''}</div>` +
         (d.city !== prevCity ? `<div class="citybtns"><button class="btn tips-btn" data-ctips="${d.city}">💡 Dicas de ${esc(CITY[d.city].name)}<small>dinheiro, saques, golpes, gorjeta</small></button>${T.history && T.history[d.city] ? `<button class="btn hist-btn" data-hist="${d.city}">📜 História<small>ler ou ouvir</small></button>` : ''}${T.tips.cities[d.city] && T.tips.cities[d.city].souvenirs ? `<button class="btn souv-btn" data-souv="${d.city}">🎁 Lembranças<small>o que comprar</small></button>` : ''}${(T.photos || {})[d.city] ? `<button class="btn photo-btn" data-photos="${d.city}">📸 Fotos<small>melhores pontos</small></button>` : ''}</div>` : '') +
+        ((T.transit || {})[d.date] ? `<button class="btn full transit-btn" data-transit="${d.date}">🚇 Transporte do dia — o que comprar<small>${esc(T.transit[d.date].sum)}</small></button>` : '') +
         d.stops.map(s => stopCard(d, s)).join('') + '</div>';
       prevCity = d.city;
     }
@@ -472,6 +475,21 @@
   }
 
 
+
+  /* ---------------- TRANSPORTE DO DIA ---------------- */
+  function openTransit(date) {
+    const t = (T.transit || {})[date]; if (!t) return;
+    const d = T.days.find(x => x.date === date), c = d && CITY[d.city];
+    stopSpeak();
+    openSheet('🚇 Transporte — ' + fmtDay(date), `<div class="note ok"><b>${esc(t.sum)}</b></div>
+      <ol class="small" style="padding-left:20px;line-height:1.5">${t.steps.map(x => `<li style="margin-bottom:6px">${esc(x)}</li>`).join('')}</ol>
+      ${c && c.transport ? `<button class="btn secondary" data-modal="${c.transport}">🚇 Guia completo de transporte de ${esc(c.name)}</button>` : ''}`);
+  }
+  function transitAlert() {
+    const t = (T.transit || {})[ymd(now())];
+    return t ? `<button class="btn full transit-btn" data-transit="${ymd(now())}">🚇 Transporte de hoje — o que comprar<small>${esc(t.sum)}</small></button>` : '';
+  }
+
   /* ---------------- PASSAGENS ---------------- */
   function tripState(t) {
     const n = now(), dep = new Date(t.dep);
@@ -486,8 +504,8 @@
     const col = st.k === 'open' ? 'var(--green,#1a7f37)' : st.k === 'done' ? 'var(--muted,#888)' : 'var(--ink)';
     return `<div class="card"><h3>${t.icon} ${esc(t.title)}</h3>
       <div class="small muted">${esc(t.co)}</div>
-      <div class="row wrap" style="margin:8px 0;align-items:center"><span class="big" style="font-size:22px;letter-spacing:1px">${esc(t.code)}</span>
-        <button class="btn secondary" style="padding:6px 10px;font-size:13px" data-ccode="${esc(t.code.replace(/^\D+\s/, ''))}">Copiar</button></div>
+      <div class="row wrap" style="margin:8px 0;align-items:center">${t.code.split(' • ').map(c => `<span class="big" style="font-size:22px;letter-spacing:1px">${esc(c)}</span>
+        <button class="btn secondary" style="padding:6px 10px;font-size:13px" data-ccode="${esc(c.replace(/^\D+\s/, ''))}">Copiar</button>`).join('')}</div>
       <div class="small" style="font-weight:600;color:${col}">${st.txt}</div>
       <ul class="small" style="margin:8px 0 4px;padding-left:18px">${t.legs.map(l => `<li>${esc(l)}</li>`).join('')}</ul>
       <div class="small muted">👥 ${t.pax.map(esc).join(' • ')}</div>
@@ -688,6 +706,7 @@
   }, true);
 
   document.addEventListener('click', async e => {
+    const trn = e.target.closest('[data-transit]'); if (trn) { openTransit(trn.dataset.transit); return; }
     const cc = e.target.closest('[data-ccode]'); if (cc) { try { await navigator.clipboard.writeText(cc.dataset.ccode); toast('Código copiado: ' + cc.dataset.ccode); } catch (x) { toast(cc.dataset.ccode); } return; }
     const tf = e.target.closest('[data-tfile]'); if (tf) { openTicketFile(tf.dataset.tfile, +tf.dataset.tidx); return; }
     const ct = e.target.closest('[data-ctips]'); if (ct) { openCountry(ct.dataset.ctips); return; }
