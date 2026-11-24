@@ -17,7 +17,7 @@ a{color:var(--navy)}
 .dot{width:12px;height:12px;border-radius:50%;background:#9aa7b6;display:block}
 .dot.ok{background:#3ccf8e}.dot.pending{background:#f1b94b}.dot.err{background:#ef6a5f}.dot.off{background:#9aa7b6}
 main{padding:12px 12px calc(84px + var(--bot));max-width:760px;margin:auto}
-.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:45;display:grid;grid-template-columns:repeat(5,1fr);background:rgba(255,255,255,.97);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:6px 4px calc(6px + var(--bot))}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:45;display:grid;grid-template-columns:repeat(6,1fr);background:rgba(255,255,255,.97);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:6px 4px calc(6px + var(--bot))}
 .tabbar button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:11px;font-weight:700;color:var(--muted);padding:4px 0}
 .tabbar button span{font-size:21px;line-height:1.1}
 .tabbar button.active{color:var(--navy)}
@@ -420,3 +420,12 @@ input[type=text],input[type=number],input[type=password],input[type=url],select,
 .transit-btn small{display:block;white-space:normal;line-height:1.35;font-weight:500;font-size:12px;opacity:.85;margin-top:2px}
 .ptbox{margin:6px 0;padding:8px 10px;border-radius:10px;background:#eaf0fb;border:1px solid #c4d3ee;font-size:13px;color:#17386b}
 .ptbox .link{text-decoration:underline;cursor:pointer;white-space:nowrap}
+
+.search{width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--line);font-size:16px;margin:0 0 10px;background:#fff}
+.wx{font-size:13px;color:#17386b;background:#eef3fb;border-radius:999px;padding:5px 10px}
+.stars{margin:4px 0}.star{border:0;background:none;font-size:26px;color:#ccc;padding:0 2px}.star.on{color:#e8a400}
+.diary{border-top:1px solid var(--line);padding-top:8px;margin-top:10px}
+.diary textarea{width:100%;border:1px solid #ccc;border-radius:8px;padding:8px;font:inherit}
+.driver{background:#fff;border:3px solid #17386b;border-radius:16px;padding:18px;color:#111}
+details.card>summary{cursor:pointer;list-style:none}details.card>summary::-webkit-details-marker{display:none}
+.hotel h3{margin-bottom:2px}

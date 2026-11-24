@@ -369,6 +369,7 @@
       h += pendingCard(6);
       h += `<div class="card"><h2>Antes de viajar</h2><div class="progress">${okc} de ${ck.length} feitos</div>` +
         ck.map(c => `<label class="check" style="color:var(--ink)"><input type="checkbox" data-check="${c.id}" ${getItem('check:' + c.id) ? 'checked' : ''}> ${esc(c.t)}</label>`).join('') + '</div>';
+      h += wxCard();
       h += `<div class="card"><h3>Primeiro dia</h3>${stopCard(first, first.stops[0])}</div>`;
     } else if (today > last.date) {
       h += `<div class="card"><div class="kicker">Viagem concluída</div><h2>Bem-vindos de volta! 🇧🇷</h2><p>Veja o total na aba Gastos.</p></div>`;
@@ -398,6 +399,9 @@
       }
       h += transitAlert();
       h += tripAlert();
+      h += wxCard();
+      if (city && HI[city.id]) h += hotelCard(HI[city.id], true);
+      if (city) h += `<button class="btn full danger" style="margin:10px 0" data-emerg="${city.id}">🆘 Emergência — ${esc(city.name)}</button>`;
       if (pendingTickets().some(t => t.due && (new Date(t.due + 'T23:59') - n) / 864e5 <= 3)) h += pendingCard(3);
       if (city) {
         const hotel = hotelOf(city.id);
@@ -413,7 +417,7 @@
   /* ---------------- ROTEIRO ---------------- */
   function renderRoteiro() {
     const today = ymd(now());
-    let h = `<div class="chips"><button class="chip ${!cityFilter ? 'active' : ''}" data-city="">Todas</button>` +
+    let h = `<input type="search" id="q" class="search" placeholder="🔍 Buscar no roteiro (ex.: Louvre, cruzeiro, Flix)" value="${esc(searchQ)}"><div id="qres">${searchHtml(searchQ)}</div>` + `<div class="chips"><button class="chip ${!cityFilter ? 'active' : ''}" data-city="">Todas</button>` +
       T.cities.map(c => `<button class="chip ${cityFilter === c.id ? 'active' : ''}" data-city="${c.id}">${c.flag} ${esc(c.name)}</button>`).join('') + '</div>';
     if (cityFilter) {
       const c = CITY[cityFilter], hotel = hotelOf(c.id);
@@ -437,6 +441,7 @@
       const buyN = d.stops.filter(s => { const t = s.tk && T.tickets.find(x => x.id === s.tk); return t && (getItem('ticket:' + t.id) || t.status) === 'todo'; }).length;
       h += `<div class="card day ${d.date === today ? 'today' : ''}" id="day-${d.date}"><div class="day-head"><div><h2>${esc(d.title)}</h2><div class="muted small">${CITY[d.city].flag} ${esc(d.sub)} • ${doneN}/${d.stops.length}${buyN ? ` • <b style="color:var(--red)">🎟️ ${buyN} ingresso${buyN > 1 ? 's' : ''} a comprar</b>` : ''}</div></div>${d.badge ? `<span class="badge">${esc(d.badge)}</span>` : ''}</div>` +
         (d.city !== prevCity ? `<div class="citybtns"><button class="btn tips-btn" data-ctips="${d.city}">💡 Dicas de ${esc(CITY[d.city].name)}<small>dinheiro, saques, golpes, gorjeta</small></button>${T.history && T.history[d.city] ? `<button class="btn hist-btn" data-hist="${d.city}">📜 História<small>ler ou ouvir</small></button>` : ''}${T.tips.cities[d.city] && T.tips.cities[d.city].souvenirs ? `<button class="btn souv-btn" data-souv="${d.city}">🎁 Lembranças<small>o que comprar</small></button>` : ''}${(T.photos || {})[d.city] ? `<button class="btn photo-btn" data-photos="${d.city}">📸 Fotos<small>melhores pontos</small></button>` : ''}</div>` : '') +
+        (wxLine(d.city, d.date) || dayMapUrl(d) ? `<div class="row wrap" style="align-items:center;margin:8px 0 0">${wxLine(d.city, d.date) ? `<span class="wx">${wxLine(d.city, d.date)}</span>` : ''}${dayMapUrl(d) ? `<a class="btn secondary" style="padding:6px 10px;font-size:13px" href="${dayMapUrl(d)}" target="_blank" rel="noopener">🗺️ Mapa do dia</a>` : ''}</div>` : '') +
         ((T.transit || {})[d.date] ? `<button class="btn full transit-btn" data-transit="${d.date}">🚇 Transporte do dia — o que comprar<small>${esc(T.transit[d.date].sum)}</small></button>` : '') +
         d.stops.map(s => stopCard(d, s)).join('') + '</div>';
       prevCity = d.city;
@@ -512,7 +517,7 @@
       <div class="small muted">🧳 ${esc(t.bag)}</div>
       <ul class="small" style="margin:8px 0;padding-left:18px">${t.tips.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
       ${t.ckurl ? `<a class="btn ${st.k === 'open' ? '' : 'secondary'}" href="${t.ckurl}" target="_blank" rel="noopener">Fazer check-in →</a>` : ''}
-      <label class="small muted" style="display:block;margin-top:8px">📝 Anotação (código da Iberia, assento…)
+      <label class="small muted" style="display:block;margin-top:8px">📝 Anotação (assento, código extra…)
         <input type="text" data-tripnote="${t.id}" value="${esc(note)}" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid #ccc"></label></div>`;
   }
   function tripsHtml() {
@@ -580,6 +585,7 @@
       ${eurR ? `<div class="muted">≈ ${money(total * eurR, 'EUR')}</div>` : ''}
       ${missing ? `<div class="note warn">Há gastos em moeda sem cotação salva — atualize a cotação.</div>` : ''}
       <div class="small muted" style="margin-top:6px">Cotação: ${r ? 'de ' + esc(r.date) : 'ainda não baixada'} <button class="btn secondary" style="padding:5px 9px;font-size:13px" data-act="rates">Atualizar</button> <button class="btn secondary" style="padding:5px 9px;font-size:13px" data-act="manualrate">Digitar cotação</button></div></div>`;
+    h += budgetHtml(total, exps);
     const cur = currentCurrency();
     h += `<div class="card"><h3>Novo gasto</h3>
       <div class="two"><label class="field"><span>Valor</span><input type="number" inputmode="decimal" step="0.01" id="e-v" placeholder="0,00"></label>
@@ -642,17 +648,167 @@
     };
   }
 
+  /* ================= KIT DA VIAGEM (hotéis, documentos, emergência, mala, diário, avisos, PDF) ================= */
+  const HI = Object.fromEntries((T.hotelinfo || []).map(h => [h.city, h]));
+  const dm = iso => iso.slice(8, 10) + '/' + iso.slice(5, 7);
+  const kv = k => getItem('kv:' + k) || '';
+  function curCityId() { const t = ymd(now()); const d = T.days.find(x => x.date === t) || (t < T.days[0].date ? T.days[0] : T.days[T.days.length - 1]); return d.city; }
+  function hotelCard(h, compact) {
+    if (!h) return '';
+    const code = kv('hotelcode:' + h.city) || h.code;
+    const st = ymd(now()) >= h.in && ymd(now()) < h.out ? '<span class="pill ok" style="margin-left:6px">hospedados</span>' : '';
+    return `<div class="card hotel"><h3>🏨 ${esc(h.name)}${st}</h3>
+      <div class="small muted">${CITY[h.city].flag} ${esc(CITY[h.city].name)} • ${dm(h.in)} → ${dm(h.out)} • ${h.nights} noite${h.nights > 1 ? 's' : ''}</div>
+      <div class="row wrap" style="margin:8px 0;align-items:center"><span class="big" style="font-size:20px;letter-spacing:1px">${esc(code)}</span>${/^[A-Z0-9]{5,}$/.test(code) ? `<button class="btn secondary" style="padding:6px 10px;font-size:13px" data-ccode="${esc(code)}">Copiar</button>` : ''}</div>
+      <div class="small">📍 ${esc(h.addr)}</div>
+      ${compact ? '' : `<div class="small">🕒 Entrada ${esc(h.cin)} • saída até ${esc(h.cout)}</div><div class="small">☕ ${esc(h.breakfast)}</div><div class="small">💶 ${esc(h.due)}</div>${h.note ? `<div class="note" style="margin-top:6px">${esc(h.note)}</div>` : ''}`}
+      <div class="stop-actions"><button class="btn" data-driver="${h.city}">🚕 Mostrar ao motorista</button>
+        <a class="btn secondary" href="${mapsTransit(h.name + ', ' + h.addr)}" target="_blank" rel="noopener">🧭 Ir para o hotel</a>
+        ${h.tel ? `<a class="btn secondary" href="tel:${h.tel.replace(/\s/g, '')}">📞 Ligar</a>` : ''}</div>
+      ${compact ? '' : `<label class="small muted" style="display:block;margin-top:8px">Código / anotação do hotel<input type="text" data-kv="hotelcode:${h.city}" value="${esc(kv('hotelcode:' + h.city))}" placeholder="${esc(h.code)}" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid #ccc"></label>`}</div>`;
+  }
+  function openDriver(city) {
+    const h = HI[city]; if (!h) return;
+    openSheet('🚕 Mostrar ao motorista', `<div class="driver"><div class="small muted">${esc(h.drv_lang)}</div><p style="font-size:22px;font-weight:700;margin:6px 0 14px">${esc(h.drv)}</p>
+      <div style="font-size:30px;font-weight:800;line-height:1.2">${esc(h.name)}</div><div style="font-size:26px;line-height:1.3;margin-top:8px">${esc(h.addr)}</div>
+      ${h.tel ? `<div style="font-size:20px;margin-top:12px">☎ ${esc(h.tel)}</div>` : ''}</div>
+      <div class="small muted" style="margin-top:14px">Vire o celular para o motorista. Funciona sem internet.</div>`);
+  }
+  function emergHtml(city) {
+    const e = (T.emerg || {})[city]; if (!e) return '';
+    const h = HI[city] || HI[{ bratislava: 'viena', munique: 'nuremberg' }[city]];
+    const q = s => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s);
+    const seg = [kv('seguro:nome'), kv('seguro:apolice')].filter(Boolean).join(' • ');
+    return `<div class="small muted">${esc(e.country)}</div>
+      ${e.nums.map(([n, t]) => `<a class="btn full ${n.startsWith('112') || n.startsWith('999') ? 'danger' : 'secondary'}" style="margin:6px 0;text-align:left" href="tel:${n.split(' ')[0]}">📞 <b>${esc(n)}</b> — ${esc(t)}</a>`).join('')}
+      ${kv('seguro:tel') ? `<a class="btn full" style="margin:6px 0;text-align:left" href="tel:${esc(kv('seguro:tel').replace(/[^\d+]/g, ''))}">🛡️ Seguro viagem — ${esc(kv('seguro:tel'))}${seg ? `<br><small>${esc(seg)}</small>` : ''}</a>` : `<div class="note warn">Cadastre o seguro viagem (telefone e apólice) na aba 🧳 Viagem → Documentos.</div>`}
+      ${kv('banco:tel') ? `<a class="btn full secondary" style="margin:6px 0;text-align:left" href="tel:${esc(kv('banco:tel').replace(/[^\d+]/g, ''))}">💳 Bloquear cartão — ${esc(kv('banco:tel'))}</a>` : ''}
+      <div class="small" style="margin:6px 0">💳 Revolut: bloqueie direto no app (Cartões → Congelar).</div>
+      ${h ? `<a class="btn full secondary" style="margin:6px 0;text-align:left" href="tel:${(h.tel || '').replace(/\s/g, '')}">🏨 ${esc(h.name)} ${h.tel ? '— ' + esc(h.tel) : ''}</a>` : ''}
+      <div class="stop-actions"><a class="btn secondary" href="${q(e.embassy)}" target="_blank" rel="noopener">🇧🇷 ${esc(e.embassy)}</a>
+        <a class="btn secondary" href="https://www.google.com/maps/search/?api=1&query=hospital" target="_blank" rel="noopener">🏥 Hospital perto</a>
+        <a class="btn secondary" href="https://www.google.com/maps/search/?api=1&query=pharmacy" target="_blank" rel="noopener">💊 Farmácia perto</a></div>
+      <div class="small muted" style="margin-top:8px">Perda/roubo de passaporte: registre boletim na polícia e procure a representação do Brasil com a foto do passaporte (guarde em Documentos).</div>`;
+  }
+  function openEmerg(city) { openSheet('🆘 Emergência — ' + CITY[city].flag + ' ' + CITY[city].name, emergHtml(city)); }
+  const DOCS = [['pass-luiz', '🛂 Passaporte — Luiz'], ['pass-andreza', '🛂 Passaporte — Andreza'], ['eta', '🇬🇧 UK ETA (os dois)'], ['seguro', '🛡️ Apólice do seguro viagem'], ['outros', '📎 Outros (CNH, vacina, cartões)']];
+  function docsHtml() {
+    return `<div class="card"><h2>📁 Documentos</h2><div class="small muted">Fotos/PDF guardados <b>só neste celular</b> e abrem sem internet. Cada um anexa no seu iPhone.</div>` +
+      DOCS.map(([id, lbl]) => { const fs = filesCache.filter(f => f.ticket === 'doc:' + id); return `<div class="list-item"><div class="grow"><div>${lbl}</div><div class="attach">${fs.map(f => `<button class="btn secondary" data-file="${f.id}">📄 ${esc(f.name.slice(0, 20))}</button>`).join('')}<label class="btn secondary">＋ Anexar<input type="file" accept="application/pdf,image/*" data-attach="doc:${id}" hidden></label></div></div></div>`; }).join('') +
+      `<h3 style="margin-top:14px">🛡️ Seguro viagem e cartões</h3>
+      ${[['seguro:nome', 'Seguradora', 'Ex.: Allianz / cartão Visa Infinite'], ['seguro:apolice', 'Nº da apólice', ''], ['seguro:tel', 'Telefone de emergência 24 h do seguro', '+55 …'], ['banco:tel', 'Telefone para bloquear cartão (outros bancos)', '+55 …']].map(([k, l, ph]) => `<label class="field"><span>${l}</span><input type="text" data-kv="${k}" value="${esc(kv(k))}" placeholder="${esc(ph)}"></label>`).join('')}
+      <div class="small muted">Esses dados sincronizam entre os dois celulares e aparecem no botão 🆘.</div></div>`;
+  }
+  function packHtml() {
+    let tot = 0, ok = 0;
+    const body = (T.pack || []).map(([g, list], gi) => `<h3 style="margin-top:12px">${esc(g)}</h3>` + list.map((t, i) => { tot++; const id = 'pack:' + gi + '-' + i, c = !!getItem(id); if (c) ok++; return `<label class="check" style="color:var(--ink)"><input type="checkbox" data-pack="${gi}-${i}" ${c ? 'checked' : ''}> ${esc(t)}</label>`; }).join('')).join('');
+    return `<details class="card"><summary><b>🧳 Lista de mala para o frio</b> <span class="progress small">${ok}/${tot}</span></summary>${body}</details>`;
+  }
+  function diaryHtml() {
+    const done = T.days.filter(d => d.date <= ymd(now()));
+    const list = (done.length ? done : T.days.slice(0, 1)).slice().reverse();
+    return `<details class="card" ${done.length ? 'open' : ''}><summary><b>📓 Diário da viagem</b></summary><div class="small muted">Uma anotação por dia — sincroniza entre os dois celulares. No fim, exporte como lembrança.</div>` +
+      list.map(d => { const v = getItem('diary:' + d.date) || {}; return `<div class="diary"><h3>${CITY[d.city].flag} ${esc(d.title)}</h3>
+        <div class="stars">${[1, 2, 3, 4, 5].map(n => `<button class="star ${(v.r || 0) >= n ? 'on' : ''}" data-star="${d.date}" data-n="${n}">★</button>`).join('')}</div>
+        <label class="field"><span>Melhor momento</span><input type="text" data-diary="${d.date}" data-f="best" value="${esc(v.best || '')}"></label>
+        <label class="field"><span>Anotações</span><textarea rows="3" data-diary="${d.date}" data-f="note">${esc(v.note || '')}</textarea></label></div>`; }).join('') +
+      `<button class="btn full secondary" data-act="diaryexp">📤 Exportar diário</button></details>`;
+  }
+  function renderViagem() {
+    const c = curCityId();
+    let h = `<div class="card"><div class="row wrap"><button class="btn danger" data-emerg="${c}">🆘 Emergência — ${esc(CITY[c].name)}</button>
+      <a class="btn secondary" href="avisos.ics" target="_blank" rel="noopener">🔔 Avisos no calendário</a><a class="btn secondary" href="imprimir.html" target="_blank" rel="noopener">🖨️ Roteiro em PDF</a></div>
+      <div class="small muted" style="margin-top:8px">🔔 “Avisos no calendário” coloca no Calendário do iPhone ${'≈'}40 lembretes com alarme (check-ins, saídas de ônibus/voo, horários de ingresso) — tocam mesmo com o app fechado e sem internet. Toque e escolha “Adicionar tudo”.</div></div>`;
+    h += `<div class="card"><h3>🆘 Emergência em outra cidade</h3><div class="chips">${T.cities.filter(x => (T.emerg || {})[x.id]).map(x => `<button class="chip" data-emerg="${x.id}">${x.flag} ${esc(x.name)}</button>`).join('')}</div></div><h2 style="margin:16px 4px 6px">🏨 Hospedagem</h2>`;
+    h += (T.hotelinfo || []).map(x => hotelCard(x)).join('');
+    h += `<div class="card"><h3>✈️ Munique — noite de 05 → 06/01</h3><div class="small">Sem hotel: vocês esperam no aeroporto (MUC). O balcão da Iberia costuma abrir umas 2 h antes do voo das 07:15. Fiquem na área pública do terminal indicado no cartão de embarque; o aeroporto tem bancos, lanchonetes 24 h e Wi-Fi grátis. Se preferir descansar, há hotéis dentro do aeroporto (pesquise “hotel MUC airport”).</div></div>`;
+    h += docsHtml() + packHtml() + diaryHtml();
+    return h;
+  }
+  /* ---------- busca ---------- */
+  function searchHtml(q) {
+    q = q.trim().toLowerCase(); if (q.length < 2) return '';
+    const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const nq = norm(q), res = [];
+    for (const d of T.days) for (const s of d.stops) if (norm(s.title + ' ' + (s.desc || '') + ' ' + (s.pt || '')).includes(nq)) res.push([d, s]);
+    return `<div class="card"><h3>🔍 ${res.length} resultado${res.length === 1 ? '' : 's'}</h3>` + (res.length ? res.slice(0, 40).map(([d, s]) => `<button class="list-item btn secondary" style="width:100%;text-align:left;margin:4px 0" data-goto="roteiro" data-day="${d.date}"><div class="grow"><b>${esc(s.title)}</b><div class="small muted">${CITY[d.city].flag} ${fmtDay(d.date)} • ${esc(s.time || '')}</div></div></button>`).join('') : '<div class="empty">Nada encontrado.</div>') + '</div>';
+  }
+  /* ---------- mapa do dia ---------- */
+  function dayMapUrl(d) {
+    const qs = [];
+    for (const s of d.stops) for (const l of (s.links || [])) { const m = /[?&](?:query|destination)=([^&]+)/.exec(l.url || ''); if (m) { const v = decodeURIComponent(m[1].replace(/\+/g, ' ')); if (!/^-?\d/.test(v) || v.includes(',')) { if (qs[qs.length - 1] !== v) qs.push(v); } break; } }
+    if (qs.length < 2) return '';
+    const pts = qs.length > 10 ? [qs[0]].concat(qs.slice(1, -1).filter((_, i, a) => i % Math.ceil(a.length / 8) === 0), [qs[qs.length - 1]]) : qs;
+    return 'https://www.google.com/maps/dir/?api=1&travelmode=walking&origin=' + encodeURIComponent(pts[0]) + '&destination=' + encodeURIComponent(pts[pts.length - 1]) + (pts.length > 2 ? '&waypoints=' + encodeURIComponent(pts.slice(1, -1).join('|')) : '');
+  }
+  /* ---------- clima (Open-Meteo, sem chave) ---------- */
+  const WX = { 0: ['☀️', 'céu limpo'], 1: ['🌤️', 'poucas nuvens'], 2: ['⛅', 'parcialmente nublado'], 3: ['☁️', 'nublado'], 45: ['🌫️', 'neblina'], 48: ['🌫️', 'neblina com gelo'], 51: ['🌦️', 'garoa'], 53: ['🌦️', 'garoa'], 55: ['🌧️', 'garoa forte'], 56: ['🧊', 'garoa congelante'], 57: ['🧊', 'garoa congelante'], 61: ['🌧️', 'chuva fraca'], 63: ['🌧️', 'chuva'], 65: ['🌧️', 'chuva forte'], 66: ['🧊', 'chuva congelante'], 67: ['🧊', 'chuva congelante'], 71: ['🌨️', 'neve fraca'], 73: ['🌨️', 'neve'], 75: ['❄️', 'neve forte'], 77: ['🌨️', 'grãos de neve'], 80: ['🌦️', 'pancadas'], 81: ['🌧️', 'pancadas'], 82: ['⛈️', 'pancadas fortes'], 85: ['🌨️', 'pancadas de neve'], 86: ['❄️', 'neve forte'], 95: ['⛈️', 'trovoada'], 96: ['⛈️', 'trovoada'], 99: ['⛈️', 'trovoada'] };
+  let wx = LS.get('wx', null);
+  async function loadWeather(force) {
+    if (!navigator.onLine || !T.coords) return;
+    if (!force && wx && Date.now() - wx.ts < 3 * 3600e3) return;
+    const ids = Object.keys(T.coords);
+    const u = 'https://api.open-meteo.com/v1/forecast?latitude=' + ids.map(i => T.coords[i][0]).join(',') + '&longitude=' + ids.map(i => T.coords[i][1]).join(',') + '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=16';
+    try {
+      const r = await fetch(u); if (!r.ok) return; let j = await r.json(); if (!Array.isArray(j)) j = [j];
+      const data = {}; ids.forEach((id, k) => { const dd = j[k] && j[k].daily; if (!dd) return; data[id] = {}; dd.time.forEach((t, i) => data[id][t] = [dd.weather_code[i], Math.round(dd.temperature_2m_max[i]), Math.round(dd.temperature_2m_min[i]), dd.precipitation_probability_max[i]]); });
+      wx = { ts: Date.now(), data }; LS.set('wx', wx); if (tab === 'agora' || tab === 'roteiro') render();
+    } catch (e) { }
+  }
+  function wxLine(city, date) {
+    const w = wx && wx.data[city] && wx.data[city][date]; if (!w) return '';
+    const [ic, tx] = WX[w[0]] || ['🌡️', ''];
+    return `${ic} ${w[1]}° / ${w[2]}° • ${tx}${w[3] != null && w[3] >= 20 ? ` • 💧${w[3]}%` : ''}`;
+  }
+  function wxCard(city) {
+    const t = ymd(now()); const ds = T.days.filter(d => d.date >= t).slice(0, 4);
+    const rows = ds.map(d => { const l = wxLine(d.city, d.date); return l ? `<div class="total" style="margin:4px 0"><span>${fmtDay(d.date)} ${CITY[d.city].flag}</span><b style="font-weight:600">${l}</b></div>` : ''; }).join('');
+    if (!rows) return t < T.days[0].date ? `<div class="card"><h3>🌦️ Previsão do tempo</h3><div class="small muted">Aparece aqui automaticamente a partir de 03/12 (16 dias antes), com internet.</div></div>` : '';
+    return `<div class="card"><h3>🌦️ Previsão do tempo</h3>${rows}<div class="small muted">Open-Meteo • atualizado ${new Date(wx.ts).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</div></div>`;
+  }
+  /* ---------- orçamento + pago antes ---------- */
+  function budgetHtml(total, exps) {
+    const b = getItem('budget') || {};
+    const pre = (T.prepaid || []).filter(p => !getItem('prehide:' + p.id)).concat(prefix('pre:').map(([k, v]) => Object.assign({ key: k }, v)));
+    let preT = 0, preMiss = false; pre.forEach(p => { const v = toBRL(p.v, p.cur); if (v == null) preMiss = true; else preT += v; });
+    const t = ymd(now()), first = T.days[0].date, last = T.days[T.days.length - 1].date;
+    const inTrip = t >= first && t <= last;
+    const daysGone = inTrip ? T.days.findIndex(d => d.date === t) + 1 : t > last ? T.days.length : 0;
+    const todayT = exps.filter(e => e.ts && ymd(new Date(e.ts)) === t).reduce((a, e) => a + (toBRL(e.v, e.cur) || 0), 0);
+    const per = +b.perDay || 0;
+    let h = `<div class="card"><h3>🎯 Orçamento</h3>
+      <label class="field"><span>Meta de gasto por dia na viagem (R$, os dois juntos)</span><input type="number" inputmode="decimal" data-budget="perDay" value="${per || ''}" placeholder="Ex.: 900"></label>`;
+    if (per) {
+      const metaT = per * T.days.length, pct = Math.min(100, Math.round(todayT / per * 100));
+      h += inTrip ? `<div class="total"><span>Hoje</span><b>${money(todayT, 'BRL')} de ${money(per, 'BRL')}</b></div><div class="bar"><i style="width:${pct}%;${todayT > per ? 'background:var(--red)' : ''}"></i></div>` : '';
+      h += `<div class="total" style="margin-top:6px"><span>Gasto na viagem</span><b>${money(total, 'BRL')}</b></div>
+        <div class="total"><span>Meta até hoje (${daysGone} dia${daysGone === 1 ? '' : 's'})</span><b>${money(per * daysGone, 'BRL')}</b></div>
+        <div class="total"><span>Meta da viagem (${T.days.length} dias)</span><b>${money(metaT, 'BRL')}</b></div>
+        ${daysGone ? `<div class="small ${total > per * daysGone ? '' : 'muted'}" style="${total > per * daysGone ? 'color:var(--red)' : ''}">${total > per * daysGone ? '⚠️ Acima da meta em ' + money(total - per * daysGone, 'BRL') : '✅ Dentro da meta — sobra ' + money(per * daysGone - total, 'BRL')}</div>` : ''}`;
+    }
+    h += `</div><details class="card"><summary><b>💳 Pago antes da viagem</b> — ${money(preT, 'BRL')}${preMiss ? ' *' : ''}</summary>
+      <div class="small muted">Valores tirados dos e-mails (hotéis, voos, Eurostar). Apague o que não for seu e acrescente o que faltar (ingressos, FlixBus, seguro…).</div>` +
+      pre.map(p => `<div class="list-item"><div class="grow">${esc(p.what)}<div class="small muted">${money(p.v, p.cur)}${p.cur !== 'BRL' && toBRL(p.v, p.cur) != null ? ' • ' + money(toBRL(p.v, p.cur), 'BRL') : ''}</div></div><button class="btn danger" style="padding:6px 10px" data-delpre="${esc(p.key || p.id)}">✕</button></div>`).join('') +
+      `<button class="btn full secondary" data-act="addpre">＋ Adicionar pago antes</button>${preMiss ? '<div class="small muted">* Atualize a cotação para converter tudo em reais.</div>' : ''}
+      <div class="total" style="margin-top:10px"><span><b>Custo total da viagem</b> (pago antes + gastos)</span><b>${money(preT + total, 'BRL')}</b></div></details>`;
+    return h;
+  }
+
   /* ---------------- render + eventos ---------------- */
   async function render() {
     document.querySelectorAll('.tabbar button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
     $('#hdr-sub').textContent = '19/12/2026 → 06/01/2027';
-    if (tab === 'ingressos') { try { filesCache = await filesAll(); } catch (e) { filesCache = []; } }
+    if (tab === 'ingressos' || tab === 'viagem') { try { filesCache = await filesAll(); } catch (e) { filesCache = []; } }
     const v = $('#view');
-    v.innerHTML = tab === 'agora' ? renderAgora() : tab === 'roteiro' ? renderRoteiro() : tab === 'ingressos' ? renderIngressos() : tab === 'gastos' ? renderGastos() : renderDicas();
+    v.innerHTML = tab === 'agora' ? renderAgora() : tab === 'roteiro' ? renderRoteiro() : tab === 'ingressos' ? renderIngressos() : tab === 'gastos' ? renderGastos() : tab === 'viagem' ? renderViagem() : renderDicas();
     if (tab === 'roteiro') { const t = document.getElementById('day-' + (render.jump || ymd(now()))); if (t && render.jump !== false) t.scrollIntoView(); render.jump = false; }
     if (tab === 'gastos') bindConverter();
+    if (tab === 'roteiro') bindSearch();
+    loadWeather();
     updateDot();
   }
+  let searchQ = '';
+  function bindSearch() { const i = $('#q'); if (!i) return; i.oninput = () => { searchQ = i.value; $('#qres').innerHTML = searchHtml(searchQ); }; }
   function bindConverter() {
     const f = () => { const v = parseFloat($('#c-v').value), cur = $('#c-cur').value, b = toBRL(v, cur); $('#c-out').textContent = isNaN(v) ? '—' : b == null ? 'Atualize a cotação' : money(b, 'BRL'); };
     $('#c-v').oninput = f; $('#c-cur').onchange = f;
@@ -706,6 +862,10 @@
   }, true);
 
   document.addEventListener('click', async e => {
+    const dv = e.target.closest('[data-driver]'); if (dv) { openDriver(dv.dataset.driver); return; }
+    const em = e.target.closest('[data-emerg]'); if (em) { openEmerg(em.dataset.emerg); return; }
+    const sr = e.target.closest('[data-star]'); if (sr) { const v = Object.assign({}, getItem('diary:' + sr.dataset.star) || {}); v.r = +sr.dataset.n; setItem('diary:' + sr.dataset.star, v); render(); return; }
+    const dp = e.target.closest('[data-delpre]'); if (dp) { if (!confirm('Tirar este item da lista?')) return; const k = dp.dataset.delpre; if (k.startsWith('pre:')) setItem(k, null, true); else setItem('prehide:' + k, true); render(); return; }
     const trn = e.target.closest('[data-transit]'); if (trn) { openTransit(trn.dataset.transit); return; }
     const cc = e.target.closest('[data-ccode]'); if (cc) { try { await navigator.clipboard.writeText(cc.dataset.ccode); toast('Código copiado: ' + cc.dataset.ccode); } catch (x) { toast(cc.dataset.ccode); } return; }
     const tf = e.target.closest('[data-tfile]'); if (tf) { openTicketFile(tf.dataset.tfile, +tf.dataset.tidx); return; }
@@ -743,6 +903,18 @@
     if (el.dataset.goto === 'ingressos') { tab = 'ingressos'; LS.set('tab', tab); render(); window.scrollTo(0, 0); return; }
     if (el.dataset.goto === 'roteiro') { tab = 'roteiro'; LS.set('tab', tab); const dd = T.days.find(x => x.date === el.dataset.day); if (dd) { cityFilter = dd.city; LS.set('city', cityFilter); dayFilter = dd.date; render.allDays = false; render.jump = false; } else { cityFilter = null; render.jump = el.dataset.day; } render(); window.scrollTo(0, 0); return; }
     if (el.dataset.act === 'rates') { updateRates(); return; }
+    if (el.dataset.act === 'addpre') {
+      const w = prompt('O que foi pago? (ex.: Ingresso Louvre, FlixBus Praga)'); if (!w) return;
+      const v = parseFloat(String(prompt('Valor?') || '').replace(',', '.')); if (!(v > 0)) return;
+      const c = (prompt('Moeda? (BRL, EUR, GBP, CZK, PLN, HUF)', 'EUR') || '').trim().toUpperCase(); if (!CURRENCIES.includes(c)) { toast('Moeda inválida'); return; }
+      setItem('pre:' + Date.now().toString(36), { what: w, v, cur: c }); render(); return;
+    }
+    if (el.dataset.act === 'diaryexp') {
+      const txt = T.days.map(d => { const v = getItem('diary:' + d.date); if (!v) return ''; return `${fmtDay(d.date)} — ${d.title}\n${v.r ? '★'.repeat(v.r) + '\n' : ''}${v.best ? 'Melhor momento: ' + v.best + '\n' : ''}${v.note || ''}`; }).filter(Boolean).join('\n\n');
+      if (!txt) { toast('Diário ainda vazio'); return; }
+      if (navigator.share) { navigator.share({ title: 'Diário Europa 26/27', text: txt }).catch(() => { }); } else { try { await navigator.clipboard.writeText(txt); toast('Diário copiado'); } catch (x) { } }
+      return;
+    }
     if (el.dataset.act === 'manualrate') {
       const cur = prompt('Qual moeda? (EUR, GBP, CZK, PLN, HUF)', currentCurrency()); if (!cur) return;
       const C = cur.trim().toUpperCase(); if (!CURRENCIES.includes(C) || C === 'BRL') { toast('Moeda inválida'); return; }
@@ -773,6 +945,10 @@
     const t = e.target;
     if (t.dataset.gseen !== undefined) { setItem('guide:' + curGuide + ':' + t.dataset.gseen, t.checked || null, !t.checked); refreshGuide(); return; }
     if (t.dataset.done) { setItem('done:' + t.dataset.done, t.checked || null, !t.checked); t.closest('.stop').classList.toggle('done', t.checked); return; }
+    if (t.dataset.kv) { setItem('kv:' + t.dataset.kv, t.value.trim() || null, !t.value.trim()); toast('Salvo'); return; }
+    if (t.dataset.pack) { setItem('pack:' + t.dataset.pack, t.checked || null, !t.checked); return; }
+    if (t.dataset.budget) { const b = Object.assign({}, getItem('budget') || {}); b[t.dataset.budget] = parseFloat(String(t.value).replace(',', '.')) || 0; setItem('budget', b); render(); return; }
+    if (t.dataset.diary) { const v = Object.assign({}, getItem('diary:' + t.dataset.diary) || {}); v[t.dataset.f] = t.value.trim(); setItem('diary:' + t.dataset.diary, v); toast('Diário salvo'); return; }
     if (t.dataset.tripnote) { setItem('tripnote:' + t.dataset.tripnote, t.value.trim() || null, !t.value.trim()); toast('Anotação salva'); return; }
     if (t.dataset.check) { setItem('check:' + t.dataset.check, t.checked || null, !t.checked); render(); return; }
     if (t.dataset.attach && t.files[0]) {
