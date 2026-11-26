@@ -441,7 +441,7 @@
       const buyN = d.stops.filter(s => { const t = s.tk && T.tickets.find(x => x.id === s.tk); return t && (getItem('ticket:' + t.id) || t.status) === 'todo'; }).length;
       h += `<div class="card day ${d.date === today ? 'today' : ''}" id="day-${d.date}"><div class="day-head"><div><h2>${esc(d.title)}</h2><div class="muted small">${CITY[d.city].flag} ${esc(d.sub)} • ${doneN}/${d.stops.length}${buyN ? ` • <b style="color:var(--red)">🎟️ ${buyN} ingresso${buyN > 1 ? 's' : ''} a comprar</b>` : ''}</div></div>${d.badge ? `<span class="badge">${esc(d.badge)}</span>` : ''}</div>` +
         (d.city !== prevCity ? `<div class="citybtns"><button class="btn tips-btn" data-ctips="${d.city}">💡 Dicas de ${esc(CITY[d.city].name)}<small>dinheiro, saques, golpes, gorjeta</small></button>${T.history && T.history[d.city] ? `<button class="btn hist-btn" data-hist="${d.city}">📜 História<small>ler ou ouvir</small></button>` : ''}${T.tips.cities[d.city] && T.tips.cities[d.city].souvenirs ? `<button class="btn souv-btn" data-souv="${d.city}">🎁 Lembranças<small>o que comprar</small></button>` : ''}${(T.photos || {})[d.city] ? `<button class="btn photo-btn" data-photos="${d.city}">📸 Fotos<small>melhores pontos</small></button>` : ''}</div>` : '') +
-        (wxLine(d.city, d.date) || dayMapUrl(d) ? `<div class="row wrap" style="align-items:center;margin:8px 0 0">${wxLine(d.city, d.date) ? `<span class="wx">${wxLine(d.city, d.date)}</span>` : ''}${dayMapUrl(d) ? `<a class="btn secondary" style="padding:6px 10px;font-size:13px" href="${dayMapUrl(d)}" target="_blank" rel="noopener">🗺️ Mapa do dia</a>` : ''}</div>` : '') +
+        (wxLine(d.city, d.date) || (d.legs || []).length ? `<div class="row wrap" style="align-items:center;margin:8px 0 0">${wxLine(d.city, d.date) ? `<span class="wx">${wxLine(d.city, d.date)}</span>` : ''}${(d.legs || []).length ? `<button class="btn secondary" style="padding:6px 10px;font-size:13px" data-daymap="${d.date}">🗺️ Mapa do dia • ≈ ${fmtMin(d.legs.reduce((a, l) => a + l.min, 0))}</button>` : ''}</div>` : '') +
         ((T.transit || {})[d.date] ? `<button class="btn full transit-btn" data-transit="${d.date}">🚇 Transporte do dia — o que comprar<small>${esc(T.transit[d.date].sum)}</small></button>` : '') +
         d.stops.map(s => stopCard(d, s)).join('') + '</div>';
       prevCity = d.city;
@@ -741,6 +741,24 @@
     const pts = qs.length > 10 ? [qs[0]].concat(qs.slice(1, -1).filter((_, i, a) => i % Math.ceil(a.length / 8) === 0), [qs[qs.length - 1]]) : qs;
     return 'https://www.google.com/maps/dir/?api=1&travelmode=walking&origin=' + encodeURIComponent(pts[0]) + '&destination=' + encodeURIComponent(pts[pts.length - 1]) + (pts.length > 2 ? '&waypoints=' + encodeURIComponent(pts.slice(1, -1).join('|')) : '');
   }
+
+  function fmtMin(m) { return m >= 60 ? Math.floor(m / 60) + 'h' + String(m % 60).padStart(2, '0') : m + ' min'; }
+  function openDayMap(date) {
+    const d = T.days.find(x => x.date === date); if (!d) return;
+    const L = d.legs || [], ic = { walk: '🚶', transit: '🚇', taxi: '🚕' }, nm = { walk: 'a pé', transit: 'transporte público', taxi: 'Uber/táxi' }, tm = { walk: 'walking', transit: 'transit', taxi: 'driving' };
+    const sum = k => L.filter(l => l.mode === k).reduce((a, l) => [a[0] + l.km, a[1] + l.min], [0, 0]);
+    const w = sum('walk'), t = sum('transit'), x = sum('taxi'), tot = w[1] + t[1] + x[1];
+    const url = l => 'https://www.google.com/maps/dir/?api=1&origin=' + encodeURIComponent(l.qa) + '&destination=' + encodeURIComponent(l.qb) + '&travelmode=' + tm[l.mode];
+    const all = dayMapUrl(d);
+    openSheet('🗺️ Deslocamentos — ' + fmtDay(date), `<div class="card" style="margin:0 0 10px">
+      <div class="big" style="font-size:24px">≈ ${fmtMin(tot)} se deslocando</div>
+      <div class="small">🚶 ${w[0].toFixed(1).replace('.', ',')} km a pé (≈ ${fmtMin(w[1])})</div>
+      ${t[0] ? `<div class="small">🚇 ${t[0].toFixed(1).replace('.', ',')} km de transporte (≈ ${fmtMin(t[1])})</div>` : ''}
+      ${x[0] ? `<div class="small">🚕 ${x[0].toFixed(1).replace('.', ',')} km de Uber/táxi (≈ ${fmtMin(x[1])})</div>` : ''}
+      <div class="small muted" style="margin-top:6px">Estimativa em linha reta corrigida para ruas; não conta trens/voos/ônibus entre cidades. Tempo de transporte inclui espera.</div></div>` +
+      (L.length ? L.map((l, i) => `<a class="leg" href="${url(l)}" target="_blank" rel="noopener"><span class="legn">${i + 1}</span><span class="grow"><b>${esc(l.a)} → ${esc(l.b)}</b><br><span class="small">${ic[l.mode]} ${nm[l.mode]} • ${String(l.km).replace('.', ',')} km • ≈ ${fmtMin(l.min)}</span></span><span>›</span></a>`).join('') : '<div class="empty">Sem deslocamentos neste dia.</div>') +
+      (all ? `<a class="btn full secondary" style="margin-top:12px" href="${all}" target="_blank" rel="noopener">🗺️ Ver todos os pontos num mapa só (a pé)</a>` : ''));
+  }
   /* ---------- clima (Open-Meteo, sem chave) ---------- */
   const WX = { 0: ['☀️', 'céu limpo'], 1: ['🌤️', 'poucas nuvens'], 2: ['⛅', 'parcialmente nublado'], 3: ['☁️', 'nublado'], 45: ['🌫️', 'neblina'], 48: ['🌫️', 'neblina com gelo'], 51: ['🌦️', 'garoa'], 53: ['🌦️', 'garoa'], 55: ['🌧️', 'garoa forte'], 56: ['🧊', 'garoa congelante'], 57: ['🧊', 'garoa congelante'], 61: ['🌧️', 'chuva fraca'], 63: ['🌧️', 'chuva'], 65: ['🌧️', 'chuva forte'], 66: ['🧊', 'chuva congelante'], 67: ['🧊', 'chuva congelante'], 71: ['🌨️', 'neve fraca'], 73: ['🌨️', 'neve'], 75: ['❄️', 'neve forte'], 77: ['🌨️', 'grãos de neve'], 80: ['🌦️', 'pancadas'], 81: ['🌧️', 'pancadas'], 82: ['⛈️', 'pancadas fortes'], 85: ['🌨️', 'pancadas de neve'], 86: ['❄️', 'neve forte'], 95: ['⛈️', 'trovoada'], 96: ['⛈️', 'trovoada'], 99: ['⛈️', 'trovoada'] };
   let wx = LS.get('wx', null);
@@ -867,6 +885,7 @@
   }, true);
 
   document.addEventListener('click', async e => {
+    const dmp = e.target.closest('[data-daymap]'); if (dmp) { openDayMap(dmp.dataset.daymap); return; }
     const dv = e.target.closest('[data-driver]'); if (dv) { openDriver(dv.dataset.driver); return; }
     const em = e.target.closest('[data-emerg]'); if (em) { openEmerg(em.dataset.emerg); return; }
     const sr = e.target.closest('[data-star]'); if (sr) { const v = Object.assign({}, getItem('diary:' + sr.dataset.star) || {}); v.r = +sr.dataset.n; setItem('diary:' + sr.dataset.star, v); render(); return; }
