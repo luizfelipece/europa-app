@@ -821,6 +821,11 @@
     const q = u.searchParams, app = !navigator.onLine ? 'apple' : (settings.maps || 'google');
     const dest = q.get('destination'), orig = q.get('origin'), query = q.get('query');
     const mode = q.get('travelmode') || 'transit';
+    const wps = (q.get('waypoints') || '').split('|').filter(Boolean);
+    if (dest && wps.length) {
+      // rota com várias paradas: só o app do Google Maps aceita (formato "A+to:B+to:C")
+      return 'comgooglemaps://?' + (orig ? 'saddr=' + encodeURIComponent(orig) + '&' : '') + 'daddr=' + wps.concat([dest]).map(encodeURIComponent).join('+to:') + '&directionsmode=' + mode;
+    }
     if (app === 'apple') {
       const flg = { transit: 'r', walking: 'w', driving: 'd' }[mode] || 'r';
       if (dest) return 'maps://?' + (orig ? 'saddr=' + encodeURIComponent(orig) + '&' : '') + 'daddr=' + encodeURIComponent(dest) + '&dirflg=' + flg;
